@@ -892,9 +892,9 @@ pub async fn run(pool: DbPool, config: AppConfig) -> anyhow::Result<()> {
         .route("/ws", get(ws_handler))
         .route("/media", get(media_get_handler))
         .route("/media/upload", post(media_upload_handler))
-        .route("/media/toggle/:id", post(media_toggle_handler))
-        .route("/media/delete/:id", post(media_delete_handler))
-        .route("/media/view/:filename", get(serve_media_handler))
+        .route("/media/toggle/{id}", post(media_toggle_handler))
+        .route("/media/delete/{id}", post(media_delete_handler))
+        .route("/media/view/{filename}", get(serve_media_handler))
         .route("/health", get(health_check_handler))
         .route("/config/backup", post(config_backup_handler))
         .with_state(state);
