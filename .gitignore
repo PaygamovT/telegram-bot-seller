@@ -1,8 +1,17 @@
 /target
-.env
 *.db
 *.db-journal
 *.db-wal
 *.db-shm
-.idea/
-.vscode/
+
+# Ignore all files/folders starting with a dot
+.*
+
+# Except important tracked config files and directories
+!.gitignore
+!.env.example
+!.github/
+!.ai-factory/
+!.ai-factory.json
+!.agent/
+!.gitkeep
