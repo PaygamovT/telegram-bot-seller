@@ -203,7 +203,7 @@ Created: 2026-05-26
 
 ### Phase 3: Database Layer
 
-- [ ] **Task 7: Implement shared::db — SQLite connection pool and initialization**
+- [x] **Task 7: Implement shared::db — SQLite connection pool and initialization**
 
   Set up the database connection pool using `deadpool-sqlite` and provide an `init` function.
 
@@ -228,7 +228,7 @@ Created: 2026-05-26
 
 ---
 
-- [ ] **Task 8: Create SQL migration 001_init.sql**
+- [x] **Task 8: Create SQL migration 001_init.sql**
 
   Create the initial migration with all 6 tables from the concept_summary schema.
 
