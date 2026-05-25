@@ -35,7 +35,9 @@ impl AppConfig {
 
         let admin_chat_id_raw = env::var("ADMIN_CHAT_ID")
             .map_err(|_| anyhow::anyhow!("ADMIN_CHAT_ID environment variable not set"))?;
-        let admin_chat_id = admin_chat_id_raw.trim().parse::<i64>()
+        let admin_chat_id = admin_chat_id_raw
+            .trim()
+            .parse::<i64>()
             .map_err(|_| anyhow::anyhow!("ADMIN_CHAT_ID must be a valid 64-bit integer"))?;
 
         let minimax_api_key = env::var("MINIMAX_API_KEY")
@@ -56,21 +58,24 @@ impl AppConfig {
             return Err(anyhow::anyhow!("GEMINI_API_KEY cannot be empty"));
         }
 
-        let openrouter_api_key = env::var("OPENROUTER_API_KEY").ok().filter(|s| !s.trim().is_empty());
+        let openrouter_api_key = env::var("OPENROUTER_API_KEY")
+            .ok()
+            .filter(|s| !s.trim().is_empty());
         if openrouter_api_key.is_none() {
             warn!("[Config.load] OPENROUTER_API_KEY not set, Gemini-only mode");
         }
 
-        let database_path = env::var("DATABASE_PATH")
-            .unwrap_or_else(|_| "./data/bot.db".to_string());
+        let database_path =
+            env::var("DATABASE_PATH").unwrap_or_else(|_| "./data/bot.db".to_string());
         if database_path.trim().is_empty() {
             return Err(anyhow::anyhow!("DATABASE_PATH cannot be empty"));
         }
 
-        let admin_server_port_raw = env::var("ADMIN_SERVER_PORT")
-            .unwrap_or_else(|_| "8080".to_string());
-        let admin_server_port = admin_server_port_raw.trim().parse::<u16>()
-            .map_err(|_| anyhow::anyhow!("ADMIN_SERVER_PORT must be a valid 16-bit unsigned integer"))?;
+        let admin_server_port_raw =
+            env::var("ADMIN_SERVER_PORT").unwrap_or_else(|_| "8080".to_string());
+        let admin_server_port = admin_server_port_raw.trim().parse::<u16>().map_err(|_| {
+            anyhow::anyhow!("ADMIN_SERVER_PORT must be a valid 16-bit unsigned integer")
+        })?;
 
         let rust_log = env::var("RUST_LOG").unwrap_or_else(|_| "debug".to_string());
 
@@ -89,7 +94,10 @@ impl AppConfig {
         // Log non-secret fields
         debug!("[Config.load] DATABASE_PATH={}", config.database_path);
         debug!("[Config.load] ADMIN_CHAT_ID={}", config.admin_chat_id);
-        debug!("[Config.load] ADMIN_SERVER_PORT={}", config.admin_server_port);
+        debug!(
+            "[Config.load] ADMIN_SERVER_PORT={}",
+            config.admin_server_port
+        );
         debug!("[Config.load] RUST_LOG={}", config.rust_log);
 
         // NEVER log API keys or tokens, but log if they exist
@@ -97,7 +105,10 @@ impl AppConfig {
         debug!("[Config.load] MINIMAX_API_KEY set = true");
         debug!("[Config.load] MINIMAX_GROUP_ID set = true");
         debug!("[Config.load] GEMINI_API_KEY set = true");
-        debug!("[Config.load] OPENROUTER_API_KEY set = {}", config.openrouter_api_key.is_some());
+        debug!(
+            "[Config.load] OPENROUTER_API_KEY set = {}",
+            config.openrouter_api_key.is_some()
+        );
 
         info!("[Config.load] Configuration loaded successfully");
 

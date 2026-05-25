@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Настройки конфигурации &bull; AI Bot Seller{% endblock %}
+
+{% block active_config %}active{% endblock %}
+
+{% block extra_style %}
+.config-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.alert-success {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #34d399;
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.15);
+    animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+label {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.input-desc {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: -0.25rem;
+    margin-bottom: 0.25rem;
+}
+
+input[type="text"], input[type="password"] {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+input[type="text"]:focus, input[type="password"]:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 0 3px rgba(138, 92, 246, 0.2);
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 2rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 1.5rem;
+}
+
+.badge-source {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-weight: 500;
+    display: inline-block;
+    margin-left: 0.5rem;
+}
+.badge-source.db {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.25);
+}
+.badge-source.env {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.25);
+}
+{% endblock %}
+
+{% block content %}
+<div class="config-container">
+    {% if saved %}
+    <div class="alert-success">
+        <span style="font-size: 1.25rem;">✨</span>
+        <div>
+            <strong style="font-family: 'Outfit', sans-serif;">Успешно сохранено!</strong> Настройки были записаны в базу данных SQLite и применены в системе.
+        </div>
+    </div>
+    {% endif %}
+
+    {% if backup_success %}
+    <div class="alert-success" style="background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.45);">
+        <span style="font-size: 1.25rem;">🛡️</span>
+        <div>
+            <strong style="font-family: 'Outfit', sans-serif;">Резервная копия создана!</strong> Точная WAL-совместимая копия SQLite БД сохранена в папку <code>./data/backups/</code>.
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <h2 style="margin-bottom: 0.5rem; font-weight: 600;">Системная конфигурация</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem; font-size: 0.95rem;">
+            Управление системными API ключами и идентификаторами. Изменения сохраняются в таблице <code>settings</code> и имеют приоритет над файлом <code>.env</code>.
+        </p>
+
+        <form action="/config" method="POST">
+            <!-- Telegram Bot Token -->
+            <div class="form-group">
+                <div style="display: flex; align-items: center;">
+                    <label for="telegram_token">Telegram Токен Бота</label>
+                    <span class="badge-source {{ telegram_token_source }}">{{ telegram_token_source|upper }}</span>
+                </div>
+                <div class="input-desc">Секретный API токен вашего Telegram бот-аккаунта (от @BotFather).</div>
+                <input type="password" id="telegram_token" name="telegram_token" value="{{ telegram_token }}" required placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ">
+            </div>
+
+            <!-- Admin Chat ID -->
+            <div class="form-group">
+                <div style="display: flex; align-items: center;">
+                    <label for="admin_chat_id">Telegram Admin Chat ID</label>
+                    <span class="badge-source {{ admin_chat_id_source }}">{{ admin_chat_id_source|upper }}</span>
+                </div>
+                <div class="input-desc">Уникальный ID администратора для получения критических алертов и отчетов.</div>
+                <input type="text" id="admin_chat_id" name="admin_chat_id" value="{{ admin_chat_id }}" required placeholder="123456789">
+            </div>
+
+            <!-- Minimax API Key -->
+            <div class="form-group">
+                <div style="display: flex; align-items: center;">
+                    <label for="minimax_api_key">MiniMax API Key</label>
+                    <span class="badge-source {{ minimax_api_key_source }}">{{ minimax_api_key_source|upper }}</span>
+                </div>
+                <div class="input-desc">Секретный ключ авторизации для работы с моделями MiniMax AI.</div>
+                <input type="password" id="minimax_api_key" name="minimax_api_key" value="{{ minimax_api_key }}" required placeholder="mmx-abcdefghijklmnopqrstuvwxyz">
+            </div>
+
+            <!-- Minimax Group ID -->
+            <div class="form-group">
+                <div style="display: flex; align-items: center;">
+                    <label for="minimax_group_id">MiniMax Group ID</label>
+                    <span class="badge-source {{ minimax_group_id_source }}">{{ minimax_group_id_source|upper }}</span>
+                </div>
+                <div class="input-desc">Идентификатор группы учетной записи MiniMax.</div>
+                <input type="text" id="minimax_group_id" name="minimax_group_id" value="{{ minimax_group_id }}" required placeholder="grp_1234567890">
+            </div>
+
+            <!-- Gemini API Key -->
+            <div class="form-group">
+                <div style="display: flex; align-items: center;">
+                    <label for="gemini_api_key">Google Gemini API Key</label>
+                    <span class="badge-source {{ gemini_api_key_source }}">{{ gemini_api_key_source|upper }}</span>
+                </div>
+                <div class="input-desc">Ключ Google AI Studio для распознавания квитанций и Gemini OCR.</div>
+                <input type="password" id="gemini_api_key" name="gemini_api_key" value="{{ gemini_api_key }}" required placeholder="AIzaSy...">
+            </div>
+
+            <!-- OpenRouter API Key -->
+            <div class="form-group">
+                <div style="display: flex; align-items: center;">
+                    <label for="openrouter_api_key">OpenRouter API Key (Опционально)</label>
+                    <span class="badge-source {{ openrouter_api_key_source }}">{{ openrouter_api_source_class }}</span>
+                </div>
+                <div class="input-desc">Ключ OpenRouter для дополнительного резервирования и гибридных моделей ИИ.</div>
+                <input type="password" id="openrouter_api_key" name="openrouter_api_key" value="{{ openrouter_api_key }}" placeholder="sk-or-v1-...">
+            </div>
+
+            <!-- Form Actions -->
+            <div class="form-actions">
+                <button type="submit" class="btn">
+                    <span>💾</span> Сохранить Конфигурацию
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Atomic SQLite Backups Card -->
+    <div class="card" style="margin-top: 2.5rem; position: relative;">
+        <h2 style="margin-bottom: 0.5rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+            <span>🛡️</span> Резервное копирование базы данных
+        </h2>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.95rem;">
+            Создать мгновенный, WAL-совместимый бэкап базы данных SQLite. Копия создается атомарно через команду <code>VACUUM INTO</code> без блокировки текущих чтений/записей клиентов.
+        </p>
+
+        <form action="/config/backup" method="POST">
+            <div style="display: flex; justify-content: flex-end;">
+                <button type="submit" class="btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                    <span>🛡️</span> Создать резервную копию
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

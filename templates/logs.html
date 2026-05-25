@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+
+{% block title %}Живые Логи &bull; AI Bot Seller{% endblock %}
+
+{% block active_logs %}active{% endblock %}
+
+{% block extra_style %}
+.console-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.console-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    gap: 1rem;
+}
+
+.console-actions-right {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.terminal-window {
+    background: rgba(10, 8, 18, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    height: calc(100vh - 320px);
+    min-height: 480px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    overflow-y: auto;
+    box-shadow: inset 0 4px 20px rgba(0, 0, 0, 0.6);
+    color: #e0e0e0;
+}
+
+.log-line {
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin-bottom: 0.35rem;
+    border-left: 3px solid transparent;
+    padding-left: 0.5rem;
+}
+
+.log-line.info {
+    color: #34d399;
+    border-color: var(--success);
+}
+
+.log-line.debug {
+    color: #9ca3af;
+    border-color: #4b5563;
+}
+
+.log-line.warn {
+    color: #fbbf24;
+    border-color: #d97706;
+}
+
+.log-line.error {
+    color: #f87171;
+    border-color: #dc2626;
+    font-weight: 600;
+}
+
+.stream-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+}
+
+.stream-status.connected {
+    background: rgba(16, 185, 129, 0.1);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.stream-status.disconnected {
+    background: rgba(239, 68, 68, 0.1);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.stream-status.paused {
+    background: rgba(245, 158, 11, 0.1);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    color: var(--text-secondary);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+{% endblock %}
+
+{% block content %}
+<div class="console-wrapper">
+    <div class="console-actions">
+        <h2 style="font-weight: 600; font-size: 1.5rem; letter-spacing: -0.02em;">Консоль отладки ИИ-агента</h2>
+        
+        <div class="console-actions-right">
+            <!-- Connection Indicator Status -->
+            <div id="statusPill" class="stream-status disconnected">
+                <span id="statusDot" style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span>
+                <span id="statusText">Подключение...</span>
+            </div>
+
+            <!-- Clear console trigger -->
+            <button id="btnClear" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+                🧹 Очистить
+            </button>
+
+            <!-- Pause console stream trigger -->
+            <button id="btnPause" class="btn" style="padding: 0.5rem 1rem; font-size: 0.85rem; background: var(--primary);">
+                ⏸️ Пауза
+            </button>
+        </div>
+    </div>
+
+    <div class="card" style="padding: 0.5rem;">
+        <div id="terminal" class="terminal-window">
+            <div class="log-line info">[System] WebSocket terminal initialized. Awaiting pipeline logs stream...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const term = document.getElementById('terminal');
+    const statusPill = document.getElementById('statusPill');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const btnClear = document.getElementById('btnClear');
+    const btnPause = document.getElementById('btnPause');
+
+    let ws = null;
+    let isPaused = false;
+    let autoScroll = true;
+    const maxLines = 1000;
+
+    // Detect user manual scroll to toggle autoscroll behavior
+    term.addEventListener('scroll', () => {
+        const threshold = 15;
+        autoScroll = (term.scrollHeight - term.clientHeight - term.scrollTop) < threshold;
+    });
+
+    function setStatus(state) {
+        if (state === 'connected') {
+            statusPill.className = 'stream-status connected';
+            statusDot.style.background = '#10b981';
+            statusText.textContent = 'Трансляция';
+        } else if (state === 'paused') {
+            statusPill.className = 'stream-status paused';
+            statusDot.style.background = '#f59e0b';
+            statusText.textContent = 'Приостановлено';
+        } else {
+            statusPill.className = 'stream-status disconnected';
+            statusDot.style.background = '#ef4444';
+            statusText.textContent = 'Отключено';
+        }
+    }
+
+    function connect() {
+        if (isPaused) return;
+
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            setStatus('connected');
+            console.log('WS stream connected successfully');
+        };
+
+        ws.onmessage = (event) => {
+            if (isPaused) return;
+            appendLog(event.data);
+        };
+
+        ws.onclose = () => {
+            setStatus('disconnected');
+            // Attempt auto reconnect after 3 seconds
+            setTimeout(connect, 3000);
+        };
+
+        ws.onerror = (err) => {
+            console.error('WS experienced error:', err);
+            ws.close();
+        };
+    }
+
+    function appendLog(text) {
+        const line = document.createElement('div');
+        
+        // Determine log level coloring rules
+        let levelClass = 'info';
+        if (text.includes(' DEBUG ')) levelClass = 'debug';
+        else if (text.includes(' WARN ') || text.includes(' WARNING ')) levelClass = 'warn';
+        else if (text.includes(' ERROR ')) levelClass = 'error';
+
+        line.className = `log-line ${levelClass}`;
+        line.textContent = text;
+        
+        term.appendChild(line);
+
+        // Keep buffer limits clean
+        while (term.children.length > maxLines) {
+            term.removeChild(term.firstChild);
+        }
+
+        // Auto scroll to bottom
+        if (autoScroll) {
+            term.scrollTop = term.scrollHeight;
+        }
+    }
+
+    btnClear.addEventListener('click', () => {
+        term.innerHTML = '';
+        appendLog('[System] Log terminal console cleared.');
+    });
+
+    btnPause.addEventListener('click', () => {
+        isPaused = !isPaused;
+        if (isPaused) {
+            btnPause.innerHTML = '▶️ Продолжить';
+            btnPause.style.background = '#10b981';
+            if (ws) ws.close();
+            setStatus('paused');
+            appendLog('[System] Logs streaming is paused.');
+        } else {
+            btnPause.innerHTML = '⏸️ Пауза';
+            btnPause.style.background = 'var(--primary)';
+            term.innerHTML = '';
+            appendLog('[System] Re-establishing log feed...');
+            setStatus('disconnected');
+            connect();
+        }
+    });
+
+    // Start WebSocket listener
+    connect();
+</script>
+{% endblock %}

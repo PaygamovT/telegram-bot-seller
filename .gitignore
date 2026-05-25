@@ -11,7 +11,4 @@
 !.gitignore
 !.env.example
 !.github/
-!.ai-factory/
-!.ai-factory.json
-!.agent/
 !.gitkeep
