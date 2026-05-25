@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+
+{% block title %}Медиа-менеджер &bull; AI Bot Seller{% endblock %}
+
+{% block active_media %}active{% endblock %}
+
+{% block extra_style %}
+.media-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.upload-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 2.5rem;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.upload-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 1.25rem;
+    align-items: flex-end;
+}
+
+@media (max-width: 900px) {
+    .upload-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.media-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+}
+
+.media-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+.thumbnail-area {
+    width: 100%;
+    height: 180px;
+    background: rgba(0, 0, 0, 0.2);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+}
+
+.thumbnail-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.media-card:hover .thumbnail-image {
+    transform: scale(1.05);
+}
+
+.purpose-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.purpose-badge.product_showcase {
+    background: rgba(139, 92, 246, 0.85);
+    color: #f3f4f6;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.purpose-badge.receipt_verification {
+    background: rgba(16, 185, 129, 0.85);
+    color: #f3f4f6;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.purpose-badge.general_nlp {
+    background: rgba(59, 130, 246, 0.85);
+    color: #f3f4f6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.card-details {
+    padding: 1.25rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.media-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.path-text {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    word-break: break-all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.card-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 1rem;
+    margin-top: auto;
+}
+
+/* Custom Toggle Switch */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 46px;
+    height: 24px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.1);
+    transition: .3s;
+    border-radius: 24px;
+    border: 1px solid var(--glass-border);
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background-color: var(--text-secondary);
+    transition: .3s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: rgba(16, 185, 129, 0.2);
+    border-color: rgba(16, 185, 129, 0.4);
+}
+
+input:checked + .slider:before {
+    transform: translateX(22px);
+    background-color: var(--success);
+    box-shadow: 0 0 8px var(--success);
+}
+
+.btn-danger-icon {
+    background: rgba(239, 68, 68, 0.1);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    padding: 0.4rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-danger-icon:hover {
+    background: #ef4444;
+    color: white;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+    transform: scale(1.05);
+}
+
+.form-group {
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+label {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+input[type="text"], select, input[type="file"]::file-selector-button {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    padding: 0.6rem 0.8rem;
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+input[type="text"]:focus, select:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 0 3px rgba(138, 92, 246, 0.2);
+}
+
+.custom-file-input {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 0.4rem;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+{% endblock %}
+
+{% block content %}
+<div class="media-container">
+    <!-- Media Upload Card Form -->
+    <div class="upload-card">
+        <h3 style="margin-bottom: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+            <span>📤</span> Загрузить новые медиафайлы в ИИ-каталог
+        </h3>
+        
+        <form action="/media/upload" method="POST" enctype="multipart/form-data">
+            <div class="upload-grid">
+                <!-- Title Field -->
+                <div class="form-group">
+                    <label for="title">Название элемента</label>
+                    <input type="text" id="title" name="title" required placeholder="Например: Скриншот флакона Creed Aventus...">
+                </div>
+
+                <!-- Purpose Selector -->
+                <div class="form-group">
+                    <label for="purpose">Назначение / Категория</label>
+                    <select id="purpose" name="purpose" required>
+                        <option value="product_showcase">Витрина товаров</option>
+                        <option value="receipt_verification">Скриншот оплаты</option>
+                        <option value="general_nlp">Прочее</option>
+                    </select>
+                </div>
+
+                <!-- File picker -->
+                <div class="form-group">
+                    <label for="file">Изображение</label>
+                    <input type="file" id="file" name="file" accept="image/*" class="custom-file-input" required>
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; margin-top: 1.25rem;">
+                <button type="submit" class="btn" style="padding: 0.6rem 1.5rem; font-size: 0.9rem;">
+                    🚀 Добавить в медиатеку
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Uploaded Media Catalog grid -->
+    <h2 style="font-weight: 600; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; font-size: 1.5rem;">
+        <span>🖼️</span> Доступная база медиафайлов
+    </h2>
+
+    {% if media_list.is_empty() %}
+        <div class="card" style="text-align: center; padding: 4rem 2rem; color: var(--text-secondary);">
+            <span style="font-size: 3rem; display: block; margin-bottom: 1rem;">🎨</span>
+            База медиафайлов пуста. Загрузите изображения выше, чтобы ИИ мог рекомендовать их клиентам.
+        </div>
+    {% else %}
+        <div class="media-grid">
+            {% for item in media_list %}
+                <div id="card-{{ item.id }}" class="media-card">
+                    <!-- Image Area -->
+                    <div class="thumbnail-area">
+                        {% if item.filename.is_empty() %}
+                            <span style="font-size: 2.5rem;">📁</span>
+                        {% else %}
+                            <img src="/media/view/{{ item.filename }}" class="thumbnail-image" alt="{{ item.title }}">
+                        {% endif %}
+                        
+                        <!-- Purpose translation badge -->
+                        <span class="purpose-badge {{ item.purpose }}">
+                            {% if item.purpose == "product_showcase" %}
+                                Фото товара
+                            {% elif item.purpose == "receipt_verification" %}
+                                Чек оплаты
+                            {% else %}
+                                Прочее
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <!-- Details Area -->
+                    <div class="card-details">
+                        <div>
+                            <div class="media-title" title="{{ item.title }}">{{ item.title }}</div>
+                            <div class="path-text" title="{{ item.file_path }}"><code>{{ item.file_path }}</code></div>
+                        </div>
+
+                        <!-- Actions Area -->
+                        <div class="card-actions">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <label class="switch">
+                                    <input type="checkbox" {% if item.is_allowed_for_ai %}checked{% endif %} onchange="toggleAiAllowance({{ item.id }})">
+                                    <span class="slider"></span>
+                                </label>
+                                <span style="font-size: 0.8rem; color: var(--text-secondary);">ИИ-доступ</span>
+                            </div>
+                            
+                            <button class="btn-danger-icon" onclick="deleteMedia({{ item.id }})" title="Удалить медиафайл">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
+
+<script>
+    // AJAX toggle AI permissions
+    function toggleAiAllowance(id) {
+        fetch(`/media/toggle/${id}`, {
+            method: 'POST'
+        })
+        .then(response => {
+            if (!response.ok) {
+                alert('Не удалось изменить настройки ИИ-доступа медиафайла.');
+                location.reload();
+            }
+        })
+        .catch(err => {
+            console.error('Toggle allowance error:', err);
+            alert('Сетевая ошибка при изменении настроек ИИ-доступа.');
+            location.reload();
+        });
+    }
+
+    // AJAX delete item
+    function deleteMedia(id) {
+        if (!confirm('Вы действительно хотите навсегда удалить этот медиафайл из БД и с диска?')) {
+            return;
+        }
+
+        fetch(`/media/delete/${id}`, {
+            method: 'POST'
+        })
+        .then(response => {
+            if (response.ok) {
+                const card = document.getElementById(`card-${id}`);
+                if (card) {
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.9) translateY(10px)';
+                    setTimeout(() => {
+                        card.remove();
+                        // Reload if empty state is reached to render empty state layout
+                        const remaining = document.querySelectorAll('.media-card');
+                        if (remaining.length === 0) {
+                            location.reload();
+                        }
+                    }, 300);
+                }
+            } else {
+                alert('Не удалось удалить медиафайл.');
+            }
+        })
+        .catch(err => {
+            console.error('Delete media error:', err);
+            alert('Сетевая ошибка при удалении медиафайла.');
+        });
+    }
+</script>
+{% endblock %}

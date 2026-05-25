@@ -1,0 +1,18 @@
+[Unit]
+Description=Autonomous AI Perfume Bot Seller & Admin Web Panel
+After=network.target
+
+[Service]
+Type=simple
+User=admin
+WorkingDirectory=/home/admin/bot-seller
+ExecStart=/home/admin/bot-seller/telegram-bot-seller
+Restart=always
+RestartSec=5
+Environment=RUST_LOG=info
+EnvironmentFile=/home/admin/bot-seller/.env
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+
+{% block title %}Панель управления &bull; AI Bot Seller{% endblock %}
+
+{% block active_dash %}active{% endblock %}
+
+{% block extra_style %}
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+}
+
+.metric-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.metric-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+.metric-card.primary::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, #8b5cf6, #3b82f6);
+}
+
+.metric-card.success::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.metric-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.metric-value {
+    font-family: 'Outfit', sans-serif;
+    font-size: 2.25rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 0.25rem;
+    color: var(--text);
+}
+
+.metric-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* Resources Dashboard Card */
+.resources-card {
+    grid-column: span 2;
+}
+@media (max-width: 900px) {
+    .resources-card {
+        grid-column: span 1;
+    }
+}
+
+.resources-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+    margin-top: 1rem;
+}
+
+@media (max-width: 600px) {
+    .resources-list {
+        grid-template-columns: 1fr;
+    }
+}
+
+.resource-item {
+    background: rgba(255, 255, 255, 0.01);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    padding: 1rem;
+    border-radius: 12px;
+}
+
+.resource-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.resource-name {
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.resource-val {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.progress-bar-bg {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), #3b82f6);
+    border-radius: 4px;
+    transition: width 0.5s ease-out;
+}
+
+.progress-bar-fill.success {
+    background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.progress-bar-fill.warning {
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.progress-bar-fill.danger {
+    background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+/* Pulse Dot */
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #34d399;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--success);
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 var(--success-glow);
+    animation: pulse 1.8s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+    }
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+/* Orders Table Styling */
+.table-container {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    overflow-x: auto;
+}
+
+.table-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 0.95rem;
+}
+
+th {
+    padding: 1rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+td {
+    padding: 1rem;
+    color: var(--text);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+tr:hover td {
+    background: rgba(255, 255, 255, 0.01);
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-badge.paid {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.status-badge.pending {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.status-badge.cancelled {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <!-- Stat Card 1 -->
+    <div class="metric-card primary">
+        <div class="metric-title">Всего Заказов</div>
+        <div class="metric-value">{{ total_orders }}</div>
+        <div class="metric-subtitle">Размещено в Telegram-боте</div>
+    </div>
+
+    <!-- Stat Card 2 -->
+    <div class="metric-card success">
+        <div class="metric-title">Выручка (Оплачено)</div>
+        <div class="metric-value">{{ total_revenue }} ₽</div>
+        <div class="metric-subtitle">Сумма всех успешных сделок</div>
+    </div>
+
+    <!-- System Status & Resource Loads -->
+    <div class="metric-card resources-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div class="metric-title" style="margin-bottom: 0;">Мониторинг Смартфона (Galaxy Flip 3)</div>
+            <div class="status-pill">
+                <span class="status-dot"></span>
+                <span>{{ bot_status }}</span>
+            </div>
+        </div>
+        
+        <div class="resources-list">
+            <!-- CPU -->
+            <div class="resource-item">
+                <div class="resource-header">
+                    <span class="resource-name">Загрузка CPU</span>
+                    <span class="resource-val">{{ cpu_load }}%</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill {% if cpu_load > 80.0 %}danger{% elif cpu_load > 60.0 %}warning{% else %}success{% endif %}" style="width: {{ cpu_load }}%"></div>
+                </div>
+            </div>
+
+            <!-- RAM -->
+            <div class="resource-item">
+                <div class="resource-header">
+                    <span class="resource-name">Оперативная память (RAM)</span>
+                    <span class="resource-val">{{ ram_used }} / {{ ram_total }} МБ</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill {% if ram_percentage > 90.0 %}danger{% elif ram_percentage > 75.0 %}warning{% else %}success{% endif %}" style="width: {{ ram_percentage }}%"></div>
+                </div>
+            </div>
+
+            <!-- Storage -->
+            <div class="resource-item">
+                <div class="resource-header">
+                    <span class="resource-name">Внутренняя память</span>
+                    <span class="resource-val">{{ storage_used }} / {{ storage_total }} ГБ</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill success" style="width: {{ storage_percentage }}%"></div>
+                </div>
+            </div>
+
+            <!-- Battery -->
+            <div class="resource-item">
+                <div class="resource-header">
+                    <span class="resource-name">Заряд батареи</span>
+                    <span class="resource-val">{{ battery_charge }}%</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill {% if battery_charge < 20 %}danger{% elif battery_charge < 40 %}warning{% else %}success{% endif %}" style="width: {{ battery_charge }}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Orders Table -->
+<div class="table-container">
+    <div class="table-title">
+        <span>Последние заказы</span>
+        <span style="font-size: 0.85rem; font-weight: normal; color: var(--text-secondary);">Топ-10 транзакций</span>
+    </div>
+    
+    {% if recent_orders.is_empty() %}
+        <div class="empty-state">
+            <span style="font-size: 2rem; display: block; margin-bottom: 0.5rem;">📦</span>
+            Заказов пока не поступало.
+        </div>
+    {% else %}
+        <table>
+            <thead>
+                <tr>
+                    <th>ID Заказа</th>
+                    <th>Клиент</th>
+                    <th>Имя пользователя</th>
+                    <th>Сумма</th>
+                    <th>Статус</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in recent_orders %}
+                <tr>
+                    <td style="font-family: monospace; font-weight: 600; color: #8b5cf6;">{{ order.order_id }}</td>
+                    <td>{{ order.customer_name }}</td>
+                    <td>
+                        {% if order.username.is_empty() %}
+                            <span style="color: var(--text-secondary); font-style: italic;">нет</span>
+                        {% else %}
+                            <a href="https://t.me/{{ order.username }}" target="_blank" style="color: #3b82f6; text-decoration: none; border-bottom: 1px dashed rgba(59, 130, 246, 0.4);">@{{ order.username }}</a>
+                        {% endif %}
+                    </td>
+                    <td style="font-weight: 600;">{{ order.total_amount }} ₽</td>
+                    <td>
+                        <span class="status-badge {{ order.status }}">{{ order.status }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+</div>
+{% endblock %}
