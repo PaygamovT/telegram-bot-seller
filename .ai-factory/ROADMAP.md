@@ -4,8 +4,8 @@
 
 ## Milestones
 
-- [ ] **Project Scaffold & Shared Core** — инициализация Cargo-проекта, модульная структура `src/modules/` + `src/shared/`, настройка `Cargo.toml` с зависимостями (tokio, rusqlite, axum, reqwest, serde, thiserror, askama), `shared::config`, `shared::error`, `shared::types` (newtype wrappers)
-- [ ] **SQLite Database & Migrations** — инициализация БД (`shared::db`), система миграций, таблицы `contacts`, `catalog`, `orders`, `order_items`, `settings`, `agent_media`; seed-данные из CSV; пул соединений через `deadpool-sqlite` или `spawn_blocking`
+- [x] **Project Scaffold & Shared Core** — инициализация Cargo-проекта, модульная структура `src/modules/` + `src/shared/`, настройка `Cargo.toml` с зависимостями (tokio, rusqlite, axum, reqwest, serde, thiserror, askama), `shared::config`, `shared::error`, `shared::types` (newtype wrappers)
+- [x] **SQLite Database & Migrations** — инициализация БД (`shared::db`), система миграций, таблицы `contacts`, `catalog`, `orders`, `order_items`, `settings`, `agent_media`; seed-данные из CSV; пул соединений через `deadpool-sqlite` или `spawn_blocking`
 - [ ] **Domain Modules (catalog, contacts, orders, media_manager)** — `domain.rs` + `repo.rs` + `mod.rs` для каждого доменного модуля; полные CRUD-операции; все 10 инструментов из concept_summary (get_contacts, update_contacts, get_catalog, update_catalog, insert_order, insert_order_items, get_orders, get_order_items, update_order, update_order_items)
 - [ ] **Telegram Bot Module (long-polling & Business API)** — подключение к Telegram Bot API, long-polling цикл, парсинг `Update` / `BusinessMessage`, маршрутизация по типу контента (текст / фото / голос), отправка ответов, реакции (лайки), кастомные эмодзи; скачивание медиа-файлов (фото, .ogg)
 - [ ] **AI Pipeline — Stage 1: Gemini Recognition** — HTTP-клиент Google Gemini (через OpenRouter или напрямую); транскрипция голосовых сообщений (.ogg → текст); распознавание изображений (OCR скриншотов оплат, описание фото товаров)
@@ -21,3 +21,5 @@
 
 | Milestone | Date |
 |-----------|------|
+| Project Scaffold & Shared Core | 2026-05-26 |
+| SQLite Database & Migrations | 2026-05-26 |
