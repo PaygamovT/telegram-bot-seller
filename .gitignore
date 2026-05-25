@@ -1,14 +1,57 @@
-/target
+# ==============================================================================
+# Production-Grade .gitignore for Autonomous Perfume Bot Seller
+# ==============================================================================
+
+# 1. Rust Compiler Artifacts & Caches
+/target/
+**/*.rs.bk
+Cargo.git/
+
+# 2. Local Database & SQLite Engine Files
+# Prevents committing local state, journals, write-ahead logs (WAL), and shared memory (SHM)
 *.db
 *.db-journal
 *.db-wal
 *.db-shm
+/data/
+/data/media/
+/data/backups/
 
-# Ignore all files/folders starting with a dot
+# 3. Environment Variables & Secrets
+# Prevents leak of active Telegram Bot tokens, Gemini APIs, and Minimax Keys
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# 4. OS and System Configurations
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 5. IDEs and Editors Caches (except explicitly exempted)
+.idea/
+.vscode/
+*.suo
+*.ntvsca*
+*.njsproj
+*.sln
+*.sw?
+
+# 6. Global Dotfile Whitelist Exclusions
+# Ignore hidden files starting with a dot by default...
 .*
 
-# Except important tracked config files and directories
+# ...but explicitly keep critical system config folders and files:
 !.gitignore
 !.env.example
 !.github/
-!.gitkeep
+!.github/workflows/
+!.agent/
+!.ai-factory/
