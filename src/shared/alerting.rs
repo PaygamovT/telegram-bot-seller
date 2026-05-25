@@ -2,6 +2,7 @@ use crate::shared::error::AppResult;
 use std::sync::OnceLock;
 use tracing::{error, info, warn};
 
+#[allow(dead_code)]
 struct AlertConfig {
     admin_chat_id: i64,
     telegram_token: String,

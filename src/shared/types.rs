@@ -1,6 +1,6 @@
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
-use serde::{Deserialize, Serialize};
 use tracing::debug;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -78,9 +78,9 @@ impl OrderId {
             .unwrap_or_default()
             .as_millis();
         let id = format!("{}", ms);
-        
+
         debug!("[OrderId.generate] Generated new order ID: {id}");
-        
+
         Self(id)
     }
 }

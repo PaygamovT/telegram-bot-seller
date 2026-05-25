@@ -18,12 +18,11 @@ pub async fn init(db_path: &str) -> AppResult<DbPool> {
     }
 
     let cfg = Config::new(db_path);
-    let pool = cfg.create_pool(Runtime::Tokio1)
-        .map_err(|e| {
-            let err_msg = format!("Failed to create DB pool: {e}");
-            error!("[DB.init] {err_msg}");
-            AppError::Config(err_msg)
-        })?;
+    let pool = cfg.create_pool(Runtime::Tokio1).map_err(|e| {
+        let err_msg = format!("Failed to create DB pool: {e}");
+        error!("[DB.init] {err_msg}");
+        AppError::Config(err_msg)
+    })?;
 
     debug!("[DB.init] Pool created, verifying connectivity...");
 
@@ -33,22 +32,25 @@ pub async fn init(db_path: &str) -> AppResult<DbPool> {
         AppError::Pool(err)
     })?;
 
-    let test_res = conn.interact(|conn| {
-        // Use execute_batch for pragmas because WAL pragma returns results
-        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
-        let mut stmt = conn.prepare("SELECT 1")?;
-        let mut rows = stmt.query([])?;
-        if rows.next()?.is_some() {
-            Ok(())
-        } else {
-            Err(rusqlite::Error::QueryReturnedNoRows)
-        }
-    })
-    .await
-    .map_err(|e| {
-        error!("[DB.init] Failed to execute test query: {e}");
-        AppError::Database(rusqlite::Error::ToSqlConversionFailure(e.to_string().into()))
-    });
+    let test_res = conn
+        .interact(|conn| {
+            // Use execute_batch for pragmas because WAL pragma returns results
+            conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
+            let mut stmt = conn.prepare("SELECT 1")?;
+            let mut rows = stmt.query([])?;
+            if rows.next()?.is_some() {
+                Ok(())
+            } else {
+                Err(rusqlite::Error::QueryReturnedNoRows)
+            }
+        })
+        .await
+        .map_err(|e| {
+            error!("[DB.init] Failed to execute test query: {e}");
+            AppError::Database(rusqlite::Error::ToSqlConversionFailure(
+                e.to_string().into(),
+            ))
+        });
 
     match test_res {
         Ok(inner_res) => {
@@ -75,15 +77,18 @@ pub async fn run_migrations(pool: &DbPool) -> AppResult<()> {
 
     let migration_sql = include_str!("../migrations/001_init.sql");
 
-    let migration_res = conn.interact(move |conn| {
-        // Execute batch migrations
-        conn.execute_batch(migration_sql)
-    })
-    .await
-    .map_err(|e| {
-        error!("[DB.run_migrations] Migration interact error: {e}");
-        AppError::Database(rusqlite::Error::ToSqlConversionFailure(e.to_string().into()))
-    });
+    let migration_res = conn
+        .interact(move |conn| {
+            // Execute batch migrations
+            conn.execute_batch(migration_sql)
+        })
+        .await
+        .map_err(|e| {
+            error!("[DB.run_migrations] Migration interact error: {e}");
+            AppError::Database(rusqlite::Error::ToSqlConversionFailure(
+                e.to_string().into(),
+            ))
+        });
 
     match migration_res {
         Ok(inner_res) => {

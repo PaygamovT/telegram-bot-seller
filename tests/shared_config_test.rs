@@ -55,7 +55,10 @@ fn test_config_load_success() {
     assert_eq!(config.minimax_api_key, "test_minimax_key");
     assert_eq!(config.minimax_group_id, "test_minimax_group");
     assert_eq!(config.gemini_api_key, "test_gemini_key");
-    assert_eq!(config.openrouter_api_key, Some("test_openrouter_key".to_string()));
+    assert_eq!(
+        config.openrouter_api_key,
+        Some("test_openrouter_key".to_string())
+    );
     assert_eq!(config.database_path, "./data/test.db");
     assert_eq!(config.admin_server_port, 9090);
 }

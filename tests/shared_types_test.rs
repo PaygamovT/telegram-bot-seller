@@ -44,10 +44,10 @@ fn test_order_id_generation_and_uniqueness() {
     // Sleep 2 milliseconds to guarantee distinct timestamp values
     std::thread::sleep(std::time::Duration::from_millis(2));
     let id2 = OrderId::generate();
-    
+
     assert_ne!(id1.0, id2.0);
     assert!(!id1.0.is_empty());
-    
+
     // The format should be numeric since it comes from timestamp millis
     assert!(id1.0.chars().all(|c| c.is_ascii_digit()));
 }
@@ -56,7 +56,7 @@ fn test_order_id_generation_and_uniqueness() {
 fn test_types_serde_roundtrip() {
     setup_tracing();
     debug!("[Test] Running: test_types_serde_roundtrip");
-    
+
     let original_chat = ChatId::from(9999);
     let serialized_chat = serde_json::to_string(&original_chat).unwrap();
     let deserialized_chat: ChatId = serde_json::from_str(&serialized_chat).unwrap();
