@@ -255,7 +255,7 @@ Created: 2026-05-26
 
 ### Phase 4: Alerting & Tests
 
-- [ ] **Task 9: Implement shared::alerting — panic hook and admin notifications**
+- [x] **Task 9: Implement shared::alerting — panic hook and admin notifications**
 
   Create a minimal alerting stub that captures panics and logs them. The actual Telegram notification will be wired when the Telegram module is implemented (Milestone 4).
 
@@ -274,7 +274,7 @@ Created: 2026-05-26
 
 ---
 
-- [ ] **Task 10: Write unit tests for shared core**
+- [x] **Task 10: Write unit tests for shared core**
 
   Create comprehensive tests for config, types, error, and DB modules.
 

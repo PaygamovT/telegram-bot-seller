@@ -34,8 +34,8 @@ pub async fn init(db_path: &str) -> AppResult<DbPool> {
     })?;
 
     let test_res = conn.interact(|conn| {
-        conn.execute("PRAGMA journal_mode=WAL;", [])?;
-        conn.execute("PRAGMA foreign_keys=ON;", [])?;
+        // Use execute_batch for pragmas because WAL pragma returns results
+        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
         let mut stmt = conn.prepare("SELECT 1")?;
         let mut rows = stmt.query([])?;
         if rows.next()?.is_some() {
@@ -47,7 +47,7 @@ pub async fn init(db_path: &str) -> AppResult<DbPool> {
     .await
     .map_err(|e| {
         error!("[DB.init] Failed to execute test query: {e}");
-        AppError::Database(rusqlite::Error::SystemError(-1, e.to_string()))
+        AppError::Database(rusqlite::Error::ToSqlConversionFailure(e.to_string().into()))
     });
 
     match test_res {
@@ -82,7 +82,7 @@ pub async fn run_migrations(pool: &DbPool) -> AppResult<()> {
     .await
     .map_err(|e| {
         error!("[DB.run_migrations] Migration interact error: {e}");
-        AppError::Database(rusqlite::Error::SystemError(-1, e.to_string()))
+        AppError::Database(rusqlite::Error::ToSqlConversionFailure(e.to_string().into()))
     });
 
     match migration_res {

@@ -18,9 +18,13 @@ impl AppConfig {
     pub fn load() -> anyhow::Result<Self> {
         debug!("[Config.load] Loading configuration from environment");
 
-        // Load .env file if it exists
-        if let Err(err) = dotenvy::dotenv() {
-            debug!("[Config.load] Note on .env loading: {}", err);
+        // Skip loading .env file if we are running inside tests
+        if env::var("TEST_ENV").is_err() {
+            if let Err(err) = dotenvy::dotenv() {
+                debug!("[Config.load] Note on .env loading: {}", err);
+            }
+        } else {
+            debug!("[Config.load] Bypassing .env load in test environment");
         }
 
         let telegram_token = env::var("TELEGRAM_BOT_TOKEN")

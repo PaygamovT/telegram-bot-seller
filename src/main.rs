@@ -1,5 +1,5 @@
-mod modules;
-mod shared;
+// Composition Root for Telegram Bot Seller application
+
 
 use tracing::{debug, info};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
