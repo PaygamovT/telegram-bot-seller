@@ -129,7 +129,7 @@ Created: 2026-05-26
 
 ### Phase 2: Shared Core Implementation
 
-- [ ] **Task 4: Implement shared::config — configuration loading**
+- [x] **Task 4: Implement shared::config — configuration loading**
 
   Create `AppConfig` struct that loads settings from environment variables (via `dotenvy`) with validation.
 
@@ -150,7 +150,7 @@ Created: 2026-05-26
 
 ---
 
-- [ ] **Task 5: Implement shared::error — unified error types**
+- [x] **Task 5: Implement shared::error — unified error types**
 
   Create the application-wide error enum with `thiserror` and a convenience `AppResult<T>` type alias.
 
@@ -178,7 +178,7 @@ Created: 2026-05-26
 
 ---
 
-- [ ] **Task 6: Implement shared::types — newtype wrappers**
+- [x] **Task 6: Implement shared::types — newtype wrappers**
 
   Create strongly-typed ID wrappers for domain identifiers, preventing accidental misuse of raw integers/strings.
 
