@@ -21,6 +21,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio-tungstenite = "0.29"
 dotenvy = "0.15"
+urlencoding = "2.1"
 
 [profile.release]
 opt-level = "z"

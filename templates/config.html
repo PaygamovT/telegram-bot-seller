@@ -216,12 +216,8 @@ select option {
                     <label for="primary_ai_model">Основная модель ИИ (Primary Model)</label>
                     <span class="badge-source {{ primary_ai_model_source }}">{{ primary_ai_model_source|upper }}</span>
                 </div>
-                <div class="input-desc">Основная модель для ведения диалогов и работы с каталогом/заказами.</div>
-                <select id="primary_ai_model" name="primary_ai_model">
-                    <option value="minimax" {% if primary_ai_model == "minimax" %}selected{% endif %}>MiniMax (abab6.5g-chat)</option>
-                    <option value="deepseek" {% if primary_ai_model == "deepseek" %}selected{% endif %}>DeepSeek (deepseek-chat)</option>
-                    <option value="gemini" {% if primary_ai_model == "gemini" %}selected{% endif %}>Google Gemini Pro</option>
-                </select>
+                <div class="input-desc">Имя или ID основной модели ИИ для общения и подбора парфюма. Можно выбрать или ввести вручную.</div>
+                <input type="text" id="primary_ai_model" name="primary_ai_model" value="{{ primary_ai_model }}" list="model_presets" required placeholder="Например: abab6.5g-chat">
             </div>
 
             <!-- Fallback AI Model -->
@@ -230,11 +226,48 @@ select option {
                     <label for="fallback_ai_model">Резервная модель ИИ (Fallback Model)</label>
                     <span class="badge-source {{ fallback_ai_model_source }}">{{ fallback_ai_model_source|upper }}</span>
                 </div>
-                <div class="input-desc">Модель для автоматического переключения при ошибках или сбоях основной модели.</div>
-                <select id="fallback_ai_model" name="fallback_ai_model">
-                    <option value="deepseek" {% if fallback_ai_model == "deepseek" %}selected{% endif %}>DeepSeek (deepseek-chat)</option>
-                    <option value="gemini" {% if fallback_ai_model == "gemini" %}selected{% endif %}>Google Gemini Pro</option>
-                    <option value="none" {% if fallback_ai_model == "none" %}selected{% endif %}>Без резервирования (None)</option>
+                <div class="input-desc">Имя или ID резервной модели при сбоях основной. Можно выбрать или ввести вручную.</div>
+                <input type="text" id="fallback_ai_model" name="fallback_ai_model" value="{{ fallback_ai_model }}" list="model_presets" required placeholder="Например: deepseek-chat">
+            </div>
+
+            <!-- Presets datalist -->
+            <datalist id="model_presets">
+                <option value="minimax/abab6.5g-chat">MiniMax abab6.5g-chat</option>
+                <option value="deepseek/deepseek-chat">DeepSeek Chat (V3)</option>
+                <option value="deepseek/deepseek-reasoner">DeepSeek Reasoner (R1)</option>
+                <option value="google/gemini-2.5-pro">Google Gemini 2.5 Pro</option>
+                <option value="google/gemini-2.5-flash">Google Gemini 2.5 Flash</option>
+                <option value="openai/gpt-4o">OpenAI GPT-4o</option>
+                <option value="openai/gpt-4o-mini">OpenAI GPT-4o Mini</option>
+                <option value="anthropic/claude-3-5-sonnet">Anthropic Claude 3.5 Sonnet</option>
+            </datalist>
+
+            <!-- Ruble to Korean Won Rate -->
+            <div class="form-group">
+                <label for="rub_to_krw_rate">Курс от рубля к корейскому вону (RUB ➔ KRW)</label>
+                <div class="input-desc">Курс обмена для расчета цен в корейских вонах (по умолчанию 15.0).</div>
+                <input type="text" id="rub_to_krw_rate" name="rub_to_krw_rate" value="{{ rub_to_krw_rate }}" required placeholder="Например: 15.0">
+            </div>
+
+            <!-- System Language -->
+            <div class="form-group">
+                <label for="system_language">Язык системы (Language)</label>
+                <div class="input-desc">Язык общения по умолчанию для Telegram-бота и отчетов.</div>
+                <select id="system_language" name="system_language">
+                    <option value="ru" {% if system_language == "ru" %}selected{% endif %}>Русский (Russian)</option>
+                    <option value="en" {% if system_language == "en" %}selected{% endif %}>English (English)</option>
+                    <option value="uz" {% if system_language == "uz" %}selected{% endif %}>O'zbekcha (Uzbek)</option>
+                    <option value="ko" {% if system_language == "ko" %}selected{% endif %}>한국어 (Korean)</option>
+                </select>
+            </div>
+
+            <!-- UI Theme -->
+            <div class="form-group">
+                <label for="theme">Тема оформления (UI Theme)</label>
+                <div class="input-desc">Основная визуальная тема для панели администратора.</div>
+                <select id="theme" name="theme">
+                    <option value="dark" {% if active_theme == "dark" %}selected{% endif %}>Темная тема (Dark)</option>
+                    <option value="light" {% if active_theme == "light" %}selected{% endif %}>Светлая тема (Light)</option>
                 </select>
             </div>
 

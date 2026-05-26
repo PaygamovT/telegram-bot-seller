@@ -1,0 +1,761 @@
+{% extends "base.html" %}
+
+{% block title %}Управление таблицами &bull; AI Bot Seller{% endblock %}
+
+{% block active_tables %}active{% endblock %}
+{% block theme_setting %}{{ active_theme }}{% endblock %}
+
+{% block extra_style %}
+.tables-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+}
+
+/* Tabs Navigation */
+.tabs-navigation {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.35rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    margin-bottom: 0.5rem;
+    overflow-x: auto;
+}
+
+.tab-btn {
+    padding: 0.65rem 1.25rem;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition: all 0.25s ease;
+    border: 1px solid transparent;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tab-btn:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.tab-btn.active {
+    color: var(--text);
+    background: rgba(138, 92, 246, 0.15);
+    border-color: rgba(138, 92, 246, 0.25);
+    box-shadow: 0 4px 12px rgba(138, 92, 246, 0.1);
+}
+
+/* Content Grid Layout */
+.content-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+}
+
+@media (min-width: 1100px) {
+    .content-grid {
+        grid-template-columns: 340px 1fr;
+    }
+}
+
+.alert-success {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #34d399;
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.15);
+    animation: fadeIn 0.3s ease-out;
+}
+
+.alert-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #f87171;
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.15);
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.form-group {
+    margin-bottom: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+label {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.input-desc {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: -0.2rem;
+}
+
+input[type="text"], input[type="number"], select, textarea {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    padding: 0.65rem 0.85rem;
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+input[type="text"]:focus, input[type="number"]:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 0 3px rgba(138, 92, 246, 0.2);
+}
+
+select option {
+    background: #111;
+    color: var(--text);
+}
+
+/* Premium Table Styling */
+.table-container {
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+th {
+    background: rgba(255, 255, 255, 0.02);
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    text-align: left;
+    padding: 0.85rem 1.1rem;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+td {
+    padding: 0.85rem 1.1rem;
+    border-bottom: 1px solid var(--glass-border);
+    vertical-align: middle;
+}
+
+tr:hover {
+    background: rgba(255, 255, 255, 0.01);
+}
+
+.scent-badge {
+    background: rgba(139, 92, 246, 0.12);
+    color: #c084fc;
+    font-size: 0.75rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    display: inline-block;
+}
+
+.season-badge {
+    background: rgba(59, 130, 246, 0.12);
+    color: #60a5fa;
+    font-size: 0.75rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    display: inline-block;
+}
+
+.status-badge {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    font-weight: 700;
+    text-transform: uppercase;
+    display: inline-block;
+}
+
+.status-badge.pending { background: rgba(245, 158, 11, 0.12); color: #fbbf24; }
+.status-badge.paid { background: rgba(16, 185, 129, 0.12); color: #34d399; }
+.status-badge.shipped { background: rgba(59, 130, 246, 0.12); color: #60a5fa; }
+.status-badge.delivered { background: rgba(109, 40, 217, 0.15); color: #a78bfa; }
+.status-badge.cancelled { background: rgba(239, 68, 68, 0.12); color: #f87171; }
+
+.btn-danger {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+.btn-danger:hover {
+    background: #f87171;
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+}
+{% endblock %}
+
+{% block content %}
+<div class="tables-layout">
+    <!-- Notifications -->
+    {% if added %}
+    <div class="alert-success">
+        <span>✨</span>
+        <div><strong style="font-family: 'Outfit', sans-serif;">Успешно добавлено!</strong> Новая запись успешно сохранена в базе данных SQLite.</div>
+    </div>
+    {% endif %}
+    {% if updated %}
+    <div class="alert-success" style="background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3); color: #60a5fa;">
+        <span>✏️</span>
+        <div><strong style="font-family: 'Outfit', sans-serif;">Изменения сохранены!</strong> Строка таблицы успешно обновлена.</div>
+    </div>
+    {% endif %}
+    {% if deleted %}
+    <div class="alert-success" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: #f87171;">
+        <span>🗑️</span>
+        <div><strong style="font-family: 'Outfit', sans-serif;">Запись удалена!</strong> Строка успешно стерта из базы данных.</div>
+    </div>
+    {% endif %}
+    {% if let Some(err) = error_msg %}
+    <div class="alert-error">
+        <span>⚠️</span>
+        <div><strong style="font-family: 'Outfit', sans-serif;">Ошибка операции:</strong> {{ err }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Tabs Navigation Menu -->
+    <div class="tabs-navigation">
+        <a href="/tables?table=catalog" class="tab-btn {% if active_tab == "catalog" %}active{% endif %}">
+            <span>🧴</span> Каталог (catalog)
+        </a>
+        <a href="/tables?table=contacts" class="tab-btn {% if active_tab == "contacts" %}active{% endif %}">
+            <span>👤</span> Контакты (contacts)
+        </a>
+        <a href="/tables?table=orders" class="tab-btn {% if active_tab == "orders" %}active{% endif %}">
+            <span>📦</span> Заказы (orders)
+        </a>
+        <a href="/tables?table=order_items" class="tab-btn {% if active_tab == "order_items" %}active{% endif %}">
+            <span>🛍️</span> Позиции (order_items)
+        </a>
+    </div>
+
+    <!-- Active Tab Panel Content -->
+    <div class="content-grid">
+        
+        <!-- ============================================ -->
+        <!-- TAB: CATALOG -->
+        <!-- ============================================ -->
+        {% if active_tab == "catalog" %}
+        <!-- Add Catalog Item Form -->
+        <div class="card">
+            <h3 style="margin-bottom: 0.5rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                <span>➕</span> Новый товар
+            </h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.85rem;">
+                Добавить парфюм в таблицу <code>catalog</code>.
+            </p>
+            <form action="/tables/catalog/add" method="POST">
+                <div class="form-group">
+                    <label for="product_name">Название парфюма</label>
+                    <input type="text" id="product_name" name="product_name" required placeholder="Например: Tom Ford Lost Cherry">
+                </div>
+                <div class="form-group">
+                    <label for="standard_price">Цена (в рублях)</label>
+                    <input type="number" id="standard_price" name="standard_price" required min="1" placeholder="Например: 18000">
+                </div>
+                <div class="form-group">
+                    <label for="stock_quantity">Количество на складе</label>
+                    <input type="number" id="stock_quantity" name="stock_quantity" required min="0" placeholder="Например: 15">
+                </div>
+                <div class="form-group">
+                    <label for="tags">Теги (через запятую)</label>
+                    <input type="text" id="tags" name="tags" placeholder="сладкий, вишневый, вечерний">
+                </div>
+                <div class="form-group">
+                    <label for="notes">Ноты (через запятую)</label>
+                    <input type="text" id="notes" name="notes" placeholder="вишня, ликер, миндаль">
+                </div>
+                <div class="form-group">
+                    <label for="suitable_season">Сезонность</label>
+                    <select id="suitable_season" name="suitable_season">
+                        <option value="Универсальный">Универсальный</option>
+                        <option value="Весна">Весна</option>
+                        <option value="Лето">Лето</option>
+                        <option value="Осень">Осень</option>
+                        <option value="Зима">Зима</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="suitable_situation">Ситуация</label>
+                    <select id="suitable_situation" name="suitable_situation">
+                        <option value="Универсальный">Универсальный</option>
+                        <option value="Дневной">Дневной</option>
+                        <option value="Вечерний">Вечерний</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="duration">Стойкость аромата</label>
+                    <input type="text" id="duration" name="duration" placeholder="Например: 8 часов">
+                </div>
+                <div class="form-group">
+                    <label for="sillage">Шлейф</label>
+                    <input type="text" id="sillage" name="sillage" placeholder="Например: умеренный">
+                </div>
+                <div style="margin-top: 1.5rem;">
+                    <button type="submit" class="btn" style="width: 100%; justify-content: center;">
+                        <span>➕</span> Добавить парфюм
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Catalog Data Grid -->
+        <div class="card">
+            <h2 style="margin-bottom: 0.5rem; font-weight: 600;">Таблица: <code>catalog</code> ({{ products.len() }} записей)</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem;">
+                Просмотр и редактирование парфюмерной витрины.
+            </p>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 60px;">ID</th>
+                            <th>Название и Свойства</th>
+                            <th style="width: 280px;">Остаток & Цена (₽)</th>
+                            <th style="width: 80px; text-align: center;">Удалить</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in products %}
+                        <tr>
+                            <td style="font-family: monospace; font-weight: 700; color: var(--text-secondary);">
+                                {{ item.product_id }}
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; font-size: 1rem; margin-bottom: 0.25rem;">{{ item.product_name }}</div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.35rem;">
+                                    {% if let Some(tags) = item.tags %}
+                                        {% for tag in tags.split(",") %}
+                                            {% if !tag.trim().is_empty() %}
+                                                <span class="scent-badge">{{ tag.trim() }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endif %}
+                                    {% if let Some(season) = item.suitable_season %}
+                                        <span class="season-badge">{{ season }}</span>
+                                    {% endif %}
+                                </div>
+                                <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                                    <strong>Ноты:</strong> {% if let Some(n) = item.notes %}{{ n }}{% else %}-{% endif %} |
+                                    <strong>Шлейф:</strong> {% if let Some(s) = item.sillage %}{{ s }}{% else %}-{% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <form action="/tables/catalog/update" method="POST" style="display: flex; align-items: center; gap: 0.4rem;">
+                                    <input type="hidden" name="product_id" value="{{ item.product_id }}">
+                                    <div style="display: flex; flex-direction: column; gap: 0.15rem;">
+                                        <input type="number" name="stock_quantity" value="{{ item.stock_quantity }}" required min="0" style="width: 75px; text-align: center; padding: 0.35rem; font-weight: 600;">
+                                        <span style="font-size: 0.65rem; color: var(--text-secondary); text-align: center;">Остаток</span>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; gap: 0.15rem;">
+                                        <input type="number" name="standard_price" value="{{ item.standard_price }}" required min="1" style="width: 95px; text-align: center; padding: 0.35rem; font-weight: 600;">
+                                        <span style="font-size: 0.65rem; color: var(--text-secondary); text-align: center;">Цена (₽)</span>
+                                    </div>
+                                    <button type="submit" class="btn" style="padding: 0.45rem 0.65rem;" title="Сохранить изменения">
+                                        <span>💾</span>
+                                    </button>
+                                </form>
+                            </td>
+                            <td style="text-align: center;">
+                                <form action="/tables/catalog/delete/{{ item.product_id }}" method="POST" onsubmit="return confirm('Вы действительно хотите удалить этот товар?');">
+                                    <button type="submit" class="btn btn-danger" style="padding: 0.45rem 0.65rem;" title="Удалить">
+                                        <span>🗑️</span>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ============================================ -->
+        <!-- TAB: CONTACTS -->
+        <!-- ============================================ -->
+        {% if active_tab == "contacts" %}
+        <!-- Add Contact Form -->
+        <div class="card">
+            <h3 style="margin-bottom: 0.5rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                <span>👤</span> Новый клиент
+            </h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.85rem;">
+                Добавить контакт в таблицу <code>contacts</code>.
+            </p>
+            <form action="/tables/contacts/add" method="POST">
+                <div class="form-group">
+                    <label for="chat_id">Telegram Chat ID</label>
+                    <div class="input-desc">Уникальный числовой ID чата.</div>
+                    <input type="number" id="chat_id" name="chat_id" required placeholder="Например: 789456123">
+                </div>
+                <div class="form-group">
+                    <label for="first_name">Имя клиента</label>
+                    <input type="text" id="first_name" name="first_name" required placeholder="Например: Алексей">
+                </div>
+                <div class="form-group">
+                    <label for="username">Имя пользователя (@username)</label>
+                    <input type="text" id="username" name="username" placeholder="Например: alex_perfume">
+                </div>
+                <div class="form-group">
+                    <label for="phone_number">Номер телефона</label>
+                    <input type="text" id="phone_number" name="phone_number" placeholder="Например: +79991234567">
+                </div>
+                <div class="form-group">
+                    <label for="address">Адрес доставки</label>
+                    <textarea id="address" name="address" rows="2" placeholder="Город, улица, дом, индекс"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="nickname">Никнейм/Заметки</label>
+                    <input type="text" id="nickname" name="nickname" placeholder="Например: Постоянный покупатель">
+                </div>
+                <div style="margin-top: 1.5rem;">
+                    <button type="submit" class="btn" style="width: 100%; justify-content: center;">
+                        <span>➕</span> Добавить контакт
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Contacts Data Grid -->
+        <div class="card">
+            <h2 style="margin-bottom: 0.5rem; font-weight: 600;">Таблица: <code>contacts</code> ({{ contacts.len() }} записей)</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem;">
+                База данных зарегистрированных пользователей Telegram-бота.
+            </p>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 110px;">Chat ID</th>
+                            <th>Имя и Логин</th>
+                            <th>Контакты и Адрес</th>
+                            <th>Никнейм</th>
+                            <th style="width: 80px; text-align: center;">Удалить</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in contacts %}
+                        <tr>
+                            <td style="font-family: monospace; font-weight: 700; color: var(--text-secondary);">
+                                {{ c.chat_id.0 }}
+                            </td>
+                            <td>
+                                <div style="font-weight: 600;">{% if let Some(first) = c.first_name %}{{ first }}{% else %}NoName{% endif %}</div>
+                                <div style="font-size: 0.8rem; color: var(--primary);">
+                                    {% if let Some(un) = c.username %}@{{ un }}{% else %}-{% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <form action="/tables/contacts/update" method="POST" style="display: flex; flex-direction: column; gap: 0.4rem;">
+                                    <input type="hidden" name="chat_id" value="{{ c.chat_id.0 }}">
+                                    <input type="text" name="phone_number" value="{% if let Some(ph) = c.phone_number %}{{ ph }}{% endif %}" placeholder="Телефон" style="padding: 0.3rem 0.5rem; font-size: 0.8rem;">
+                                    <input type="text" name="address" value="{% if let Some(ad) = c.address %}{{ ad }}{% endif %}" placeholder="Адрес доставки" style="padding: 0.3rem 0.5rem; font-size: 0.8rem;">
+                                    <div style="display: flex; justify-content: flex-end;">
+                                        <button type="submit" class="btn" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" title="Сохранить изменения">
+                                            <span>💾</span> Сохранить
+                                        </button>
+                                    </div>
+                                </form>
+                            </td>
+                            <td>
+                                <form action="/tables/contacts/update" method="POST" style="display: flex; align-items: center; gap: 0.3rem;">
+                                    <input type="hidden" name="chat_id" value="{{ c.chat_id.0 }}">
+                                    <!-- Keep other fields preserved during this specific update by hidden fields if needed, 
+                                         but the backend handler will support optional updates -->
+                                    <input type="text" name="nickname" value="{% if let Some(nk) = c.nickname %}{{ nk }}{% endif %}" placeholder="Никнейм" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; width: 120px;">
+                                    <button type="submit" class="btn" style="padding: 0.35rem 0.5rem;" title="Сохранить заметку">
+                                        <span>💾</span>
+                                    </button>
+                                </form>
+                            </td>
+                            <td style="text-align: center;">
+                                <form action="/tables/contacts/delete/{{ c.chat_id.0 }}" method="POST" onsubmit="return confirm('Вы действительно хотите удалить контакт? Все его заказы также могут быть затронуты.');">
+                                    <button type="submit" class="btn btn-danger" style="padding: 0.45rem 0.65rem;" title="Удалить">
+                                        <span>🗑️</span>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ============================================ -->
+        <!-- TAB: ORDERS -->
+        <!-- ============================================ -->
+        {% if active_tab == "orders" %}
+        <!-- Add Order Form -->
+        <div class="card">
+            <h3 style="margin-bottom: 0.5rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                <span>📦</span> Создать заказ
+            </h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.85rem;">
+                Добавить заказ в таблицу <code>orders</code>.
+            </p>
+            <form action="/tables/orders/add" method="POST">
+                <div class="form-group">
+                    <label for="order_id">Идентификатор заказа (Order ID)</label>
+                    <div class="input-desc">Уникальный буквенно-числовой код заказа.</div>
+                    <input type="text" id="order_id" name="order_id" required placeholder="Например: ORD-1234">
+                </div>
+                <div class="form-group">
+                    <label for="chat_id">Клиент (Chat ID)</label>
+                    <select id="chat_id" name="chat_id" required>
+                        <option value="">-- Выберите клиента --</option>
+                        {% for c in contacts %}
+                        <option value="{{ c.chat_id.0 }}">{% if let Some(first) = c.first_name %}{{ first }}{% else %}NoName{% endif %} ({{ c.chat_id.0 }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="status">Статус</label>
+                    <select id="status" name="status">
+                        <option value="pending">Ожидает оплаты (pending)</option>
+                        <option value="paid">Оплачен (paid)</option>
+                        <option value="shipped">В пути (shipped)</option>
+                        <option value="delivered">Доставлен (delivered)</option>
+                        <option value="cancelled">Отменен (cancelled)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="delivery_address">Адрес доставки</label>
+                    <input type="text" id="delivery_address" name="delivery_address" required placeholder="Например: Сеул, Каннамгу...">
+                </div>
+                <div class="form-group">
+                    <label for="total_amount">Общая сумма (в рублях)</label>
+                    <input type="number" id="total_amount" name="total_amount" required min="0" placeholder="Например: 18000">
+                </div>
+                <div style="margin-top: 1.5rem;">
+                    <button type="submit" class="btn" style="width: 100%; justify-content: center;">
+                        <span>➕</span> Создать заказ
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Orders Data Grid -->
+        <div class="card">
+            <h2 style="margin-bottom: 0.5rem; font-weight: 600;">Таблица: <code>orders</code> ({{ orders.len() }} записей)</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem;">
+                Учет сформированных заказов и отслеживание статуса доставки.
+            </p>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">Заказ ID</th>
+                            <th>Покупатель ID</th>
+                            <th>Общая цена (₽)</th>
+                            <th style="width: 250px;">Статус & Доставка</th>
+                            <th style="width: 80px; text-align: center;">Удалить</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for o in orders %}
+                        <tr>
+                            <td style="font-family: monospace; font-weight: 700; color: var(--text-secondary);">
+                                {{ o.order_id.0 }}
+                            </td>
+                            <td style="font-family: monospace; font-size: 0.85rem;">
+                                {{ o.chat_id.0 }}
+                            </td>
+                            <td style="font-weight: 700; color: var(--text);">
+                                {{ o.total_amount }} ₽
+                            </td>
+                            <td>
+                                <form action="/tables/orders/update" method="POST" style="display: flex; flex-direction: column; gap: 0.4rem;">
+                                    <input type="hidden" name="order_id" value="{{ o.order_id.0 }}">
+                                    <input type="hidden" name="chat_id" value="{{ o.chat_id.0 }}">
+                                    
+                                    <div style="display: flex; align-items: center; gap: 0.35rem;">
+                                        <select name="status" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; font-weight: 600; width: 140px;">
+                                            <option value="pending" {% if o.status.to_string() == "pending" %}selected{% endif %}>Ожидает (pending)</option>
+                                            <option value="paid" {% if o.status.to_string() == "paid" %}selected{% endif %}>Оплачен (paid)</option>
+                                            <option value="shipped" {% if o.status.to_string() == "shipped" %}selected{% endif %}>В пути (shipped)</option>
+                                            <option value="delivered" {% if o.status.to_string() == "delivered" %}selected{% endif %}>Доставлен (delivered)</option>
+                                            <option value="cancelled" {% if o.status.to_string() == "cancelled" %}selected{% endif %}>Отменен (cancelled)</option>
+                                        </select>
+                                        <span class="status-badge {{ o.status.to_string() }}">{{ o.status.to_string() }}</span>
+                                    </div>
+                                    
+                                    <div style="display: flex; align-items: center; gap: 0.35rem;">
+                                        <input type="text" name="delivery_address" value="{% if let Some(da) = o.delivery_address %}{{ da }}{% endif %}" placeholder="Адрес доставки" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; width: 140px;">
+                                        <input type="number" name="total_amount" value="{{ o.total_amount }}" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; width: 80px;">
+                                        <button type="submit" class="btn" style="padding: 0.35rem 0.5rem;" title="Сохранить">
+                                            <span>💾</span>
+                                        </button>
+                                    </div>
+                                </form>
+                            </td>
+                            <td style="text-align: center;">
+                                <form action="/tables/orders/delete/{{ o.order_id.0 }}" method="POST" onsubmit="return confirm('Вы действительно хотите удалить этот заказ? Позиции заказа также будут удалены.');">
+                                    <button type="submit" class="btn btn-danger" style="padding: 0.45rem 0.65rem;" title="Удалить">
+                                        <span>🗑️</span>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ============================================ -->
+        <!-- TAB: ORDER ITEMS -->
+        <!-- ============================================ -->
+        {% if active_tab == "order_items" %}
+        <!-- Add Order Item Form -->
+        <div class="card">
+            <h3 style="margin-bottom: 0.5rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                <span>🛍️</span> Добавить позицию
+            </h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.85rem;">
+                Добавить товарную позицию в заказ в таблицу <code>order_items</code>.
+            </p>
+            <form action="/tables/order_items/add" method="POST">
+                <div class="form-group">
+                    <label for="item_id">Идентификатор позиции (Item ID)</label>
+                    <div class="input-desc">Уникальный ID строки (буквенно-числовой).</div>
+                    <input type="text" id="item_id" name="item_id" required placeholder="Например: ITEM-1234">
+                </div>
+                <div class="form-group">
+                    <label for="order_id">Заказ (Order ID)</label>
+                    <select id="order_id" name="order_id" required>
+                        <option value="">-- Выберите заказ --</option>
+                        {% for o in orders %}
+                        <option value="{{ o.order_id.0 }}">{{ o.order_id.0 }} (сумма: {{ o.total_amount }}₽)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="product_id">Товар из каталога</label>
+                    <select id="product_id" name="product_id" required>
+                        <option value="">-- Выберите парфюм --</option>
+                        {% for p in products %}
+                        <option value="{{ p.product_id }}">{{ p.product_name }} ({{ p.standard_price }}₽)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Количество</label>
+                    <input type="number" id="quantity" name="quantity" required min="1" value="1" placeholder="Например: 1">
+                </div>
+                <div class="form-group">
+                    <label for="price_at_sale">Цена продажи (в рублях)</label>
+                    <div class="input-desc">Цена за единицу на момент продажи.</div>
+                    <input type="number" id="price_at_sale" name="price_at_sale" required min="1" placeholder="Например: 18000">
+                </div>
+                <div style="margin-top: 1.5rem;">
+                    <button type="submit" class="btn" style="width: 100%; justify-content: center;">
+                        <span>➕</span> Добавить в заказ
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Order Items Data Grid -->
+        <div class="card">
+            <h2 style="margin-bottom: 0.5rem; font-weight: 600;">Таблица: <code>order_items</code> ({{ order_items.len() }} записей)</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem;">
+                Состав товарных позиций по каждому из оформленных заказов.
+            </p>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">Позиция ID</th>
+                            <th>Заказ ID</th>
+                            <th>Товар ID</th>
+                            <th style="width: 250px;">Кол-во и Цена за шт.</th>
+                            <th style="width: 80px; text-align: center;">Удалить</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in order_items %}
+                        <tr>
+                            <td style="font-family: monospace; font-weight: 700; color: var(--text-secondary);">
+                                {{ item.item_id.0 }}
+                            </td>
+                            <td style="font-family: monospace; font-size: 0.85rem;">
+                                {{ item.order_id.0 }}
+                            </td>
+                            <td style="font-family: monospace; font-size: 0.85rem; color: var(--primary);">
+                                {{ item.product_id.0 }}
+                            </td>
+                            <td>
+                                <form action="/tables/order_items/update" method="POST" style="display: flex; align-items: center; gap: 0.40rem;">
+                                    <input type="hidden" name="item_id" value="{{ item.item_id.0 }}">
+                                    
+                                    <div style="display: flex; flex-direction: column; gap: 0.15rem;">
+                                        <input type="number" name="quantity" value="{{ item.quantity }}" required min="1" style="width: 70px; text-align: center; padding: 0.35rem; font-weight: 600;">
+                                        <span style="font-size: 0.65rem; color: var(--text-secondary); text-align: center;">Кол-во</span>
+                                    </div>
+                                    
+                                    <div style="display: flex; flex-direction: column; gap: 0.15rem;">
+                                        <input type="number" name="price_at_sale" value="{{ item.price_at_sale }}" required min="1" style="width: 95px; text-align: center; padding: 0.35rem; font-weight: 600;">
+                                        <span style="font-size: 0.65rem; color: var(--text-secondary); text-align: center;">Цена (₽)</span>
+                                    </div>
+                                    
+                                    <button type="submit" class="btn" style="padding: 0.45rem 0.65rem;" title="Сохранить">
+                                        <span>💾</span>
+                                    </button>
+                                </form>
+                            </td>
+                            <td style="text-align: center;">
+                                <form action="/tables/order_items/delete/{{ item.item_id.0 }}" method="POST" onsubmit="return confirm('Вы действительно хотите удалить эту позицию?');">
+                                    <button type="submit" class="btn btn-danger" style="padding: 0.45rem 0.65rem;" title="Удалить">
+                                        <span>🗑️</span>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}

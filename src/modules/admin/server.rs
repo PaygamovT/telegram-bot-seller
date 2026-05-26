@@ -866,57 +866,159 @@ async fn config_backup_handler(
 }
 
 // ==========================================
-// Catalog Management Routing Controllers
+// Unified Tables Management Routing Controllers
 // ==========================================
 
 #[derive(serde::Deserialize)]
-pub struct CatalogQuery {
+pub struct TablesQuery {
+    pub table: Option<String>,
     pub added: Option<bool>,
     pub updated: Option<bool>,
     pub deleted: Option<bool>,
+    pub error_msg: Option<String>,
 }
 
 #[derive(Template)]
-#[template(path = "catalog.html")]
-struct CatalogTemplate {
+#[template(path = "tables.html")]
+struct TablesTemplate {
+    active_tab: String,
+    active_theme: String,
     added: bool,
     updated: bool,
     deleted: bool,
+    error_msg: Option<String>,
     products: Vec<crate::modules::catalog::Product>,
+    contacts: Vec<crate::modules::contacts::Contact>,
+    orders: Vec<crate::modules::orders::Order>,
+    order_items: Vec<crate::modules::orders::OrderItem>,
 }
 
-/// GET /catalog - Renders Catalog Management page loaded with all products
-async fn catalog_get_handler(
+/// GET /tables - Renders Database Tables Management Panel
+async fn tables_get_handler(
     _auth: BasicAuth,
     State(state): State<AppState>,
-    Query(query): Query<CatalogQuery>,
+    Query(query): Query<TablesQuery>,
 ) -> impl IntoResponse {
-    match crate::modules::catalog::get_catalog(&state.pool).await {
-        Ok(products) => {
-            let template = CatalogTemplate {
-                added: query.added.unwrap_or(false),
-                updated: query.updated.unwrap_or(false),
-                deleted: query.deleted.unwrap_or(false),
-                products,
-            };
-            match template.render() {
-                Ok(html) => Response::builder()
-                    .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
-                    .body(Body::from(html))
-                    .unwrap()
-                    .into_response(),
-                Err(err) => {
-                    error!("[AdminServer.catalog_get] Askama rendering failed: {}", err);
-                    StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    let active_tab = query.table.unwrap_or_else(|| "catalog".to_string());
+    let active_theme = get_theme(&state.pool).await;
+
+    // Load products from catalog
+    let products = match crate::modules::catalog::get_catalog(&state.pool).await {
+        Ok(p) => p,
+        Err(e) => {
+            error!("[AdminServer.tables_get] DB Catalog fetch failure: {}", e);
+            Vec::new()
+        }
+    };
+
+    // Load contacts from public module re-export
+    let contacts = match crate::modules::contacts::get_all_contacts(&state.pool).await {
+        Ok(c) => c,
+        Err(e) => {
+            error!("[AdminServer.tables_get] DB Contacts fetch failure: {}", e);
+            Vec::new()
+        }
+    };
+
+    // Load orders directly from SQLite
+    let orders = match state.pool.get().await {
+        Ok(conn) => {
+            match conn.interact(|conn| -> Result<Vec<crate::modules::orders::Order>, rusqlite::Error> {
+                let mut stmt = conn.prepare("SELECT order_id, chat_id, status, delivery_address, total_amount FROM orders ORDER BY ROWID DESC")?;
+                let order_iter = stmt.query_map([], |row| {
+                    let status_str: String = row.get(2)?;
+                    let status = status_str.parse().unwrap_or(crate::modules::orders::OrderStatus::Pending);
+                    Ok(crate::modules::orders::Order {
+                        order_id: crate::shared::types::OrderId(row.get(0)?),
+                        chat_id: crate::shared::types::ChatId(row.get(1)?),
+                        status,
+                        delivery_address: row.get(3)?,
+                        total_amount: row.get(4)?,
+                    })
+                })?;
+                let mut list = Vec::new();
+                for o in order_iter {
+                    list.push(o?);
+                }
+                Ok(list)
+            }).await {
+                Ok(Ok(list)) => list,
+                err => {
+                    error!("[AdminServer.tables_get] DB interact orders failure: {:?}", err);
+                    Vec::new()
                 }
             }
         }
+        Err(e) => {
+            error!("[AdminServer.tables_get] DB Order pool acquisition failure: {}", e);
+            Vec::new()
+        }
+    };
+
+    // Load order items directly from SQLite
+    let order_items = match state.pool.get().await {
+        Ok(conn) => {
+            match conn.interact(|conn| -> Result<Vec<crate::modules::orders::OrderItem>, rusqlite::Error> {
+                let mut stmt = conn.prepare("SELECT item_id, order_id, product_id, quantity, price_at_sale FROM order_items ORDER BY ROWID DESC")?;
+                let item_iter = stmt.query_map([], |row| {
+                    let item_id_str: String = row.get(0)?;
+                    let item_id = crate::shared::types::ItemId(item_id_str.parse().unwrap_or_default());
+                    Ok(crate::modules::orders::OrderItem {
+                        item_id,
+                        order_id: crate::shared::types::OrderId(row.get(1)?),
+                        product_id: crate::shared::types::ProductId(row.get(2)?),
+                        quantity: row.get(3)?,
+                        price_at_sale: row.get(4)?,
+                    })
+                })?;
+                let mut list = Vec::new();
+                for i in item_iter {
+                    list.push(i?);
+                }
+                Ok(list)
+            }).await {
+                Ok(Ok(list)) => list,
+                err => {
+                    error!("[AdminServer.tables_get] DB interact order_items failure: {:?}", err);
+                    Vec::new()
+                }
+            }
+        }
+        Err(e) => {
+            error!("[AdminServer.tables_get] DB OrderItems pool acquisition failure: {}", e);
+            Vec::new()
+        }
+    };
+
+    let template = TablesTemplate {
+        active_tab,
+        active_theme,
+        added: query.added.unwrap_or(false),
+        updated: query.updated.unwrap_or(false),
+        deleted: query.deleted.unwrap_or(false),
+        error_msg: query.error_msg,
+        products,
+        contacts,
+        orders,
+        order_items,
+    };
+
+    match template.render() {
+        Ok(html) => Response::builder()
+            .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
+            .body(Body::from(html))
+            .unwrap()
+            .into_response(),
         Err(err) => {
-            error!("[AdminServer.catalog_get] DB Catalog fetch failure: {}", err);
+            error!("[AdminServer.tables_get] Askama rendering failed: {}", err);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
 }
+
+// ------------------------------------------
+// 🧴 Catalog CRUD Handlers
+// ------------------------------------------
 
 #[derive(serde::Deserialize)]
 pub struct CatalogAddForm {
@@ -924,14 +1026,13 @@ pub struct CatalogAddForm {
     pub standard_price: i32,
     pub stock_quantity: i32,
     pub tags: Option<String>,
-    pub notes: String,
+    pub notes: Option<String>,
     pub suitable_season: String,
     pub suitable_situation: String,
-    pub duration: String,
-    pub sillage: String,
+    pub duration: Option<String>,
+    pub sillage: Option<String>,
 }
 
-/// POST /catalog/add - Add new perfume product into catalog database table
 async fn catalog_add_handler(
     _auth: BasicAuth,
     State(state): State<AppState>,
@@ -939,13 +1040,9 @@ async fn catalog_add_handler(
 ) -> impl IntoResponse {
     let conn = match state.pool.get().await {
         Ok(c) => c,
-        Err(e) => {
-            error!("[AdminServer.catalog_add] DB pool acquisition failure: {}", e);
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-        }
+        Err(_) => return Redirect::to("/tables?table=catalog&error_msg=DB Pool acquisition error").into_response(),
     };
 
-    let name_logged = form.product_name.clone();
     let add_res = conn.interact(move |conn| -> Result<_, rusqlite::Error> {
         let mut stmt = conn.prepare(
             "INSERT INTO catalog (product_name, standard_price, stock_quantity, tags, notes, suitable_season, suitable_situation, duration, sillage) \
@@ -966,13 +1063,11 @@ async fn catalog_add_handler(
     }).await;
 
     match add_res {
-        Ok(Ok(())) => {
-            info!("[AdminServer.catalog_add] Perfume product '{}' added successfully", name_logged);
-            Redirect::to("/catalog?added=true").into_response()
-        }
+        Ok(Ok(())) => Redirect::to("/tables?table=catalog&added=true").into_response(),
         err => {
-            error!("[AdminServer.catalog_add] DB Insertion failed: {:?}", err);
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            let msg = format!("DB Insertion failed: {:?}", err);
+            error!("[AdminServer.catalog_add] {}", msg);
+            Redirect::to(&format!("/tables?table=catalog&error_msg={}", urlencoding::encode(&msg))).into_response()
         }
     }
 }
@@ -984,7 +1079,6 @@ pub struct CatalogUpdateForm {
     pub stock_quantity: i32,
 }
 
-/// POST /catalog/update - Edit product price and stock quantity inline
 async fn catalog_update_handler(
     _auth: BasicAuth,
     State(state): State<AppState>,
@@ -992,10 +1086,7 @@ async fn catalog_update_handler(
 ) -> impl IntoResponse {
     let conn = match state.pool.get().await {
         Ok(c) => c,
-        Err(e) => {
-            error!("[AdminServer.catalog_update] DB pool acquisition failure: {}", e);
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-        }
+        Err(_) => return Redirect::to("/tables?table=catalog&error_msg=DB Pool acquisition error").into_response(),
     };
 
     let update_res = conn.interact(move |conn| -> Result<_, rusqlite::Error> {
@@ -1011,18 +1102,15 @@ async fn catalog_update_handler(
     }).await;
 
     match update_res {
-        Ok(Ok(())) => {
-            info!("[AdminServer.catalog_update] Product ID {} updated successfully", form.product_id);
-            Redirect::to("/catalog?updated=true").into_response()
-        }
+        Ok(Ok(())) => Redirect::to("/tables?table=catalog&updated=true").into_response(),
         err => {
-            error!("[AdminServer.catalog_update] DB Update failed: {:?}", err);
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            let msg = format!("DB Update failed: {:?}", err);
+            error!("[AdminServer.catalog_update] {}", msg);
+            Redirect::to(&format!("/tables?table=catalog&error_msg={}", urlencoding::encode(&msg))).into_response()
         }
     }
 }
 
-/// POST /catalog/delete/{id} - Delete product from catalog database table
 async fn catalog_delete_handler(
     _auth: BasicAuth,
     State(state): State<AppState>,
@@ -1030,10 +1118,7 @@ async fn catalog_delete_handler(
 ) -> impl IntoResponse {
     let conn = match state.pool.get().await {
         Ok(c) => c,
-        Err(e) => {
-            error!("[AdminServer.catalog_delete] DB pool acquisition failure: {}", e);
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-        }
+        Err(_) => return Redirect::to("/tables?table=catalog&error_msg=DB Pool acquisition error").into_response(),
     };
 
     let delete_res = conn.interact(move |conn| -> Result<_, rusqlite::Error> {
@@ -1043,13 +1128,363 @@ async fn catalog_delete_handler(
     }).await;
 
     match delete_res {
-        Ok(Ok(())) => {
-            info!("[AdminServer.catalog_delete] Product ID {} deleted successfully", id);
-            Redirect::to("/catalog?deleted=true").into_response()
-        }
+        Ok(Ok(())) => Redirect::to("/tables?table=catalog&deleted=true").into_response(),
         err => {
-            error!("[AdminServer.catalog_delete] DB Deletion failed: {:?}", err);
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            let msg = format!("DB Deletion failed: {:?}", err);
+            error!("[AdminServer.catalog_delete] {}", msg);
+            Redirect::to(&format!("/tables?table=catalog&error_msg={}", urlencoding::encode(&msg))).into_response()
+        }
+    }
+}
+
+// ------------------------------------------
+// 👤 Contacts CRUD Handlers
+// ------------------------------------------
+
+#[derive(serde::Deserialize)]
+pub struct ContactAddForm {
+    pub chat_id: i64,
+    pub first_name: String,
+    pub username: Option<String>,
+    pub phone_number: Option<String>,
+    pub address: Option<String>,
+    pub nickname: Option<String>,
+}
+
+async fn contacts_add_handler(
+    _auth: BasicAuth,
+    State(state): State<AppState>,
+    Form(form): Form<ContactAddForm>,
+) -> impl IntoResponse {
+    let conn = match state.pool.get().await {
+        Ok(c) => c,
+        Err(_) => return Redirect::to("/tables?table=contacts&error_msg=DB Pool acquisition error").into_response(),
+    };
+
+    let add_res = conn.interact(move |conn| -> Result<_, rusqlite::Error> {
+        let mut stmt = conn.prepare(
+            "INSERT INTO contacts (chat_id, first_name, username, phone_number, address, nickname) VALUES (?, ?, ?, ?, ?, ?)"
+        )?;
+        stmt.execute((
+            form.chat_id,
+            &form.first_name,
+            form.username.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()),
+            form.phone_number.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()),
+            form.address.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()),
+            form.nickname.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()),
+        ))?;
+        Ok(())
+    }).await;
+
+    match add_res {
+        Ok(Ok(())) => Redirect::to("/tables?table=contacts&added=true").into_response(),
+        err => {
+            let msg = format!("DB Insertion failed (make sure Chat ID is unique): {:?}", err);
+            error!("[AdminServer.contacts_add] {}", msg);
+            Redirect::to(&format!("/tables?table=contacts&error_msg={}", urlencoding::encode(&msg))).into_response()
+        }
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct ContactUpdateForm {
+    pub chat_id: i64,
+    pub phone_number: Option<String>,
+    pub address: Option<String>,
+    pub nickname: Option<String>,
+}
+
+async fn contacts_update_handler(
+    _auth: BasicAuth,
+    State(state): State<AppState>,
+    Form(form): Form<ContactUpdateForm>,
+) -> impl IntoResponse {
+    let conn = match state.pool.get().await {
+        Ok(c) => c,
+        Err(_) => return Redirect::to("/tables?table=contacts&error_msg=DB Pool acquisition error").into_response(),
+    };
+
+    let update_res = conn.interact(move |conn| -> Result<_, rusqlite::Error> {
+        let mut stmt = conn.prepare(
+            "UPDATE contacts SET phone_number = ?, address = ?, nickname = ? WHERE chat_id = ?"
+        )?;
+        stmt.execute((
+            form.phone_number.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()),
+            form.address.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()),
+            form.nickname.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()),
+            form.chat_id,
+        ))?;
+        Ok(())
+    }).await;
+
+    match update_res {
+        Ok(Ok(())) => Redirect::to("/tables?table=contacts&updated=true").into_response(),
+        err => {
+            let msg = format!("DB Update failed: {:?}", err);
+            error!("[AdminServer.contacts_update] {}", msg);
+            Redirect::to(&format!("/tables?table=contacts&error_msg={}", urlencoding::encode(&msg))).into_response()
+        }
+    }
+}
+
+async fn contacts_delete_handler(
+    _auth: BasicAuth,
+    State(state): State<AppState>,
+    axum::extract::Path(id): axum::extract::Path<i64>,
+) -> impl IntoResponse {
+    let conn = match state.pool.get().await {
+        Ok(c) => c,
+        Err(_) => return Redirect::to("/tables?table=contacts&error_msg=DB Pool acquisition error").into_response(),
+    };
+
+    let delete_res = conn.interact(move |conn| -> Result<_, rusqlite::Error> {
+        let mut stmt = conn.prepare("DELETE FROM contacts WHERE chat_id = ?")?;
+        stmt.execute([id])?;
+        Ok(())
+    }).await;
+
+    match delete_res {
+        Ok(Ok(())) => Redirect::to("/tables?table=contacts&deleted=true").into_response(),
+        err => {
+            let msg = format!("DB Deletion failed (possible foreign key constraint): {:?}", err);
+            error!("[AdminServer.contacts_delete] {}", msg);
+            Redirect::to(&format!("/tables?table=contacts&error_msg={}", urlencoding::encode(&msg))).into_response()
+        }
+    }
+}
+
+// ------------------------------------------
+// 📦 Orders CRUD Handlers
+// ------------------------------------------
+
+#[derive(serde::Deserialize)]
+pub struct OrderAddForm {
+    pub order_id: String,
+    pub chat_id: i64,
+    pub status: String,
+    pub delivery_address: Option<String>,
+    pub total_amount: i32,
+}
+
+async fn orders_add_handler(
+    _auth: BasicAuth,
+    State(state): State<AppState>,
+    Form(form): Form<OrderAddForm>,
+) -> impl IntoResponse {
+    let conn = match state.pool.get().await {
+        Ok(c) => c,
+        Err(_) => return Redirect::to("/tables?table=orders&error_msg=DB Pool acquisition error").into_response(),
+    };
+
+    let order_id = form.order_id.trim().to_string();
+    if order_id.is_empty() {
+        return Redirect::to("/tables?table=orders&error_msg=Order ID cannot be empty").into_response();
+    }
+
+    let add_res = conn.interact(move |conn| -> Result<_, rusqlite::Error> {
+        let mut stmt = conn.prepare(
+            "INSERT INTO orders (order_id, chat_id, status, delivery_address, total_amount) VALUES (?, ?, ?, ?, ?)"
+        )?;
+        stmt.execute((
+            &order_id,
+            form.chat_id,
+            &form.status,
+            form.delivery_address.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()),
+            form.total_amount,
+        ))?;
+        Ok(())
+    }).await;
+
+    match add_res {
+        Ok(Ok(())) => Redirect::to("/tables?table=orders&added=true").into_response(),
+        err => {
+            let msg = format!("DB Insertion failed (make sure client exists and order ID is unique): {:?}", err);
+            error!("[AdminServer.orders_add] {}", msg);
+            Redirect::to(&format!("/tables?table=orders&error_msg={}", urlencoding::encode(&msg))).into_response()
+        }
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct OrderUpdateForm {
+    pub order_id: String,
+    pub status: String,
+    pub delivery_address: Option<String>,
+    pub total_amount: i32,
+}
+
+async fn orders_update_handler(
+    _auth: BasicAuth,
+    State(state): State<AppState>,
+    Form(form): Form<OrderUpdateForm>,
+) -> impl IntoResponse {
+    let conn = match state.pool.get().await {
+        Ok(c) => c,
+        Err(_) => return Redirect::to("/tables?table=orders&error_msg=DB Pool acquisition error").into_response(),
+    };
+
+    let update_res = conn.interact(move |conn| -> Result<_, rusqlite::Error> {
+        let mut stmt = conn.prepare(
+            "UPDATE orders SET status = ?, delivery_address = ?, total_amount = ? WHERE order_id = ?"
+        )?;
+        stmt.execute((
+            &form.status,
+            form.delivery_address.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()),
+            form.total_amount,
+            &form.order_id,
+        ))?;
+        Ok(())
+    }).await;
+
+    match update_res {
+        Ok(Ok(())) => Redirect::to("/tables?table=orders&updated=true").into_response(),
+        err => {
+            let msg = format!("DB Update failed: {:?}", err);
+            error!("[AdminServer.orders_update] {}", msg);
+            Redirect::to(&format!("/tables?table=orders&error_msg={}", urlencoding::encode(&msg))).into_response()
+        }
+    }
+}
+
+async fn orders_delete_handler(
+    _auth: BasicAuth,
+    State(state): State<AppState>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    let conn = match state.pool.get().await {
+        Ok(c) => c,
+        Err(_) => return Redirect::to("/tables?table=orders&error_msg=DB Pool acquisition error").into_response(),
+    };
+
+    let delete_res = conn.interact(move |conn| -> Result<_, rusqlite::Error> {
+        let mut stmt = conn.prepare("DELETE FROM orders WHERE order_id = ?")?;
+        stmt.execute([id])?;
+        Ok(())
+    }).await;
+
+    match delete_res {
+        Ok(Ok(())) => Redirect::to("/tables?table=orders&deleted=true").into_response(),
+        err => {
+            let msg = format!("DB Deletion failed: {:?}", err);
+            error!("[AdminServer.orders_delete] {}", msg);
+            Redirect::to(&format!("/tables?table=orders&error_msg={}", urlencoding::encode(&msg))).into_response()
+        }
+    }
+}
+
+// ------------------------------------------
+// 🛍️ Order Items CRUD Handlers
+// ------------------------------------------
+
+#[derive(serde::Deserialize)]
+pub struct OrderItemAddForm {
+    pub item_id: String,
+    pub order_id: String,
+    pub product_id: i64,
+    pub quantity: i32,
+    pub price_at_sale: i32,
+}
+
+async fn order_items_add_handler(
+    _auth: BasicAuth,
+    State(state): State<AppState>,
+    Form(form): Form<OrderItemAddForm>,
+) -> impl IntoResponse {
+    let conn = match state.pool.get().await {
+        Ok(c) => c,
+        Err(_) => return Redirect::to("/tables?table=order_items&error_msg=DB Pool acquisition error").into_response(),
+    };
+
+    let item_id = form.item_id.trim().to_string();
+    if item_id.is_empty() {
+        return Redirect::to("/tables?table=order_items&error_msg=Item ID cannot be empty").into_response();
+    }
+
+    let add_res = conn.interact(move |conn| -> Result<_, rusqlite::Error> {
+        let mut stmt = conn.prepare(
+            "INSERT INTO order_items (item_id, order_id, product_id, quantity, price_at_sale) VALUES (?, ?, ?, ?, ?)"
+        )?;
+        stmt.execute((
+            &item_id,
+            &form.order_id,
+            form.product_id,
+            form.quantity,
+            form.price_at_sale,
+        ))?;
+        Ok(())
+    }).await;
+
+    match add_res {
+        Ok(Ok(())) => Redirect::to("/tables?table=order_items&added=true").into_response(),
+        err => {
+            let msg = format!("DB Insertion failed (make sure Order and Product exist and Item ID is unique): {:?}", err);
+            error!("[AdminServer.order_items_add] {}", msg);
+            Redirect::to(&format!("/tables?table=order_items&error_msg={}", urlencoding::encode(&msg))).into_response()
+        }
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct OrderItemUpdateForm {
+    pub item_id: String,
+    pub quantity: i32,
+    pub price_at_sale: i32,
+}
+
+async fn order_items_update_handler(
+    _auth: BasicAuth,
+    State(state): State<AppState>,
+    Form(form): Form<OrderItemUpdateForm>,
+) -> impl IntoResponse {
+    let conn = match state.pool.get().await {
+        Ok(c) => c,
+        Err(_) => return Redirect::to("/tables?table=order_items&error_msg=DB Pool acquisition error").into_response(),
+    };
+
+    let update_res = conn.interact(move |conn| -> Result<_, rusqlite::Error> {
+        let mut stmt = conn.prepare(
+            "UPDATE order_items SET quantity = ?, price_at_sale = ? WHERE item_id = ?"
+        )?;
+        stmt.execute((
+            form.quantity,
+            form.price_at_sale,
+            &form.item_id,
+        ))?;
+        Ok(())
+    }).await;
+
+    match update_res {
+        Ok(Ok(())) => Redirect::to("/tables?table=order_items&updated=true").into_response(),
+        err => {
+            let msg = format!("DB Update failed: {:?}", err);
+            error!("[AdminServer.order_items_update] {}", msg);
+            Redirect::to(&format!("/tables?table=order_items&error_msg={}", urlencoding::encode(&msg))).into_response()
+        }
+    }
+}
+
+async fn order_items_delete_handler(
+    _auth: BasicAuth,
+    State(state): State<AppState>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    let conn = match state.pool.get().await {
+        Ok(c) => c,
+        Err(_) => return Redirect::to("/tables?table=order_items&error_msg=DB Pool acquisition error").into_response(),
+    };
+
+    let delete_res = conn.interact(move |conn| -> Result<_, rusqlite::Error> {
+        let mut stmt = conn.prepare("DELETE FROM order_items WHERE item_id = ?")?;
+        stmt.execute([id])?;
+        Ok(())
+    }).await;
+
+    match delete_res {
+        Ok(Ok(())) => Redirect::to("/tables?table=order_items&deleted=true").into_response(),
+        err => {
+            let msg = format!("DB Deletion failed: {:?}", err);
+            error!("[AdminServer.order_items_delete] {}", msg);
+            Redirect::to(&format!("/tables?table=order_items&error_msg={}", urlencoding::encode(&msg))).into_response()
         }
     }
 }
@@ -1063,10 +1498,19 @@ pub async fn run(pool: DbPool, config: AppConfig) -> anyhow::Result<()> {
         .route("/", get(dashboard_handler))
         .route("/admin/order/update_status", post(order_status_update_handler))
         .route("/admin/update_theme", post(update_theme_handler))
-        .route("/catalog", get(catalog_get_handler))
-        .route("/catalog/add", post(catalog_add_handler))
-        .route("/catalog/update", post(catalog_update_handler))
-        .route("/catalog/delete/{id}", post(catalog_delete_handler))
+        .route("/tables", get(tables_get_handler))
+        .route("/tables/catalog/add", post(catalog_add_handler))
+        .route("/tables/catalog/update", post(catalog_update_handler))
+        .route("/tables/catalog/delete/{id}", post(catalog_delete_handler))
+        .route("/tables/contacts/add", post(contacts_add_handler))
+        .route("/tables/contacts/update", post(contacts_update_handler))
+        .route("/tables/contacts/delete/{id}", post(contacts_delete_handler))
+        .route("/tables/orders/add", post(orders_add_handler))
+        .route("/tables/orders/update", post(orders_update_handler))
+        .route("/tables/orders/delete/{id}", post(orders_delete_handler))
+        .route("/tables/order_items/add", post(order_items_add_handler))
+        .route("/tables/order_items/update", post(order_items_update_handler))
+        .route("/tables/order_items/delete/{id}", post(order_items_delete_handler))
         .route("/config", get(config_get_handler).post(config_post_handler))
         .route("/logs", get(logs_handler))
         .route("/ws", get(ws_handler))
