@@ -518,8 +518,6 @@ struct ConfigTemplate {
     admin_chat_id_source: &'static str,
     minimax_api_key: String,
     minimax_api_key_source: &'static str,
-    minimax_group_id: String,
-    minimax_group_id_source: &'static str,
     gemini_api_key: String,
     gemini_api_key_source: &'static str,
     openrouter_api_key: String,
@@ -585,11 +583,6 @@ async fn config_get_handler(
         None => (state.config.minimax_api_key.clone(), "env"),
     };
 
-    let (minimax_group_id, minimax_group_id_source) = match settings_map.get("MINIMAX_GROUP_ID") {
-        Some(val) => (val.clone(), "db"),
-        None => (state.config.minimax_group_id.clone(), "env"),
-    };
-
     let (gemini_api_key, gemini_api_key_source) = match settings_map.get("GEMINI_API_KEY") {
         Some(val) => (val.clone(), "db"),
         None => (state.config.gemini_api_key.clone(), "env"),
@@ -633,8 +626,6 @@ async fn config_get_handler(
         admin_chat_id_source,
         minimax_api_key,
         minimax_api_key_source,
-        minimax_group_id,
-        minimax_group_id_source,
         gemini_api_key,
         gemini_api_key_source,
         openrouter_api_key,
@@ -668,7 +659,6 @@ pub struct ConfigForm {
     pub telegram_token: String,
     pub admin_chat_id: String,
     pub minimax_api_key: String,
-    pub minimax_group_id: String,
     pub gemini_api_key: String,
     pub openrouter_api_key: Option<String>,
     pub primary_ai_model: String,
@@ -700,7 +690,6 @@ async fn config_post_handler(
             stmt.execute(("TELEGRAM_BOT_TOKEN", &form.telegram_token))?;
             stmt.execute(("ADMIN_CHAT_ID", &form.admin_chat_id))?;
             stmt.execute(("MINIMAX_API_KEY", &form.minimax_api_key))?;
-            stmt.execute(("MINIMAX_GROUP_ID", &form.minimax_group_id))?;
             stmt.execute(("GEMINI_API_KEY", &form.gemini_api_key))?;
             
             stmt.execute(("primary_ai_model", &form.primary_ai_model))?;

@@ -19,7 +19,6 @@ fn clear_env() {
         env::remove_var("TELEGRAM_BOT_TOKEN");
         env::remove_var("ADMIN_CHAT_ID");
         env::remove_var("MINIMAX_API_KEY");
-        env::remove_var("MINIMAX_GROUP_ID");
         env::remove_var("GEMINI_API_KEY");
         env::remove_var("OPENROUTER_API_KEY");
         env::remove_var("DATABASE_PATH");
@@ -39,7 +38,6 @@ fn test_config_load_success() {
         env::set_var("TELEGRAM_BOT_TOKEN", "test_bot_token");
         env::set_var("ADMIN_CHAT_ID", "12345");
         env::set_var("MINIMAX_API_KEY", "test_minimax_key");
-        env::set_var("MINIMAX_GROUP_ID", "test_minimax_group");
         env::set_var("GEMINI_API_KEY", "test_gemini_key");
         env::set_var("OPENROUTER_API_KEY", "test_openrouter_key");
         env::set_var("DATABASE_PATH", "./data/test.db");
@@ -53,7 +51,6 @@ fn test_config_load_success() {
     assert_eq!(config.telegram_token, "test_bot_token");
     assert_eq!(config.admin_chat_id, 12345);
     assert_eq!(config.minimax_api_key, "test_minimax_key");
-    assert_eq!(config.minimax_group_id, "test_minimax_group");
     assert_eq!(config.gemini_api_key, "test_gemini_key");
     assert_eq!(
         config.openrouter_api_key,
@@ -74,7 +71,6 @@ fn test_config_load_missing_required() {
     unsafe {
         env::set_var("ADMIN_CHAT_ID", "12345");
         env::set_var("MINIMAX_API_KEY", "test_minimax_key");
-        env::set_var("MINIMAX_GROUP_ID", "test_minimax_group");
         env::set_var("GEMINI_API_KEY", "test_gemini_key");
     }
 
@@ -95,7 +91,6 @@ fn test_config_load_optional_missing() {
         env::set_var("TELEGRAM_BOT_TOKEN", "test_bot_token");
         env::set_var("ADMIN_CHAT_ID", "12345");
         env::set_var("MINIMAX_API_KEY", "test_minimax_key");
-        env::set_var("MINIMAX_GROUP_ID", "test_minimax_group");
         env::set_var("GEMINI_API_KEY", "test_gemini_key");
     }
 

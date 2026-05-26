@@ -15,7 +15,6 @@ The application core strictly parses and validates these configurations on start
 | **`TELEGRAM_BOT_TOKEN`** | **Yes** | *None* | The authentication API token provided by Telegram's BotFather. |
 | **`ADMIN_CHAT_ID`** | **Yes** | *None* | The Telegram Chat ID of the main administrator. Used for alerting, logs, and panic reports. |
 | **`MINIMAX_API_KEY`** | No | *None* | API Key for MiniMax AI integrations. |
-| **`MINIMAX_GROUP_ID`** | No | *None* | Group/Organization ID for MiniMax AI. |
 | **`GEMINI_API_KEY`** | No | *None* | API Key for Google Gemini integrations. |
 | **`OPENROUTER_API_KEY`**| No | *None* | API Key for OpenRouter LLM gateway integrations. |
 | **`DATABASE_PATH`** | No | `./data/bot.db` | The path to the SQLite local database file. |

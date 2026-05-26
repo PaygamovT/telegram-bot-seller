@@ -2,7 +2,7 @@ use telegram_bot_seller::modules::ai::gemini::{
     GeminiRequest, GeminiResponse, GeminiContent, GeminiPart, GeminiInlineData,
     OpenRouterRequest, OpenRouterResponse, OpenRouterMessage, OpenRouterContent, OpenRouterImageUrl, OpenRouterInputAudio
 };
-use telegram_bot_seller::modules::ai::minimax::{MiniMaxMessage, MiniMaxResponse, MiniMaxToolCall};
+use telegram_bot_seller::modules::ai::minimax::{AnthropicMessage, AnthropicBlock, AnthropicContent};
 use telegram_bot_seller::modules::ai::tools::get_minimax_tools_schema;
 
 #[test]
@@ -155,25 +155,25 @@ fn test_openrouter_response_deserialization() {
 
 #[test]
 fn test_minimax_message_serialization() {
-    let msg = MiniMaxMessage {
+    let msg = AnthropicMessage {
         role: "assistant".to_string(),
-        content: Some("I have processed your request".to_string()),
-        tool_calls: Some(vec![MiniMaxToolCall {
-            id: "call_t1".to_string(),
-            r#type: "function".to_string(),
-            function: telegram_bot_seller::modules::ai::minimax::MiniMaxFunctionCall {
-                name: "get_catalog".to_string(),
-                arguments: "{}".to_string(),
+        content: AnthropicContent::MultipleBlocks(vec![
+            AnthropicBlock::Text {
+                text: "I have processed your request".to_string(),
             },
-        }]),
-        tool_call_id: None,
-        name: None,
+            AnthropicBlock::ToolUse {
+                id: "call_t1".to_string(),
+                name: "get_catalog".to_string(),
+                input: serde_json::json!({}),
+            },
+        ]),
     };
 
-    let serialized = serde_json::to_string(&msg).expect("Failed to serialize MiniMaxMessage");
+    let serialized = serde_json::to_string(&msg).expect("Failed to serialize AnthropicMessage");
     assert!(serialized.contains("\"role\":\"assistant\""));
-    assert!(serialized.contains("\"content\":\"I have processed your request\""));
-    assert!(serialized.contains("\"tool_calls\""));
+    assert!(serialized.contains("\"type\":\"text\""));
+    assert!(serialized.contains("\"text\":\"I have processed your request\""));
+    assert!(serialized.contains("\"type\":\"tool_use\""));
     assert!(serialized.contains("\"id\":\"call_t1\""));
     assert!(serialized.contains("\"name\":\"get_catalog\""));
 }
@@ -182,22 +182,30 @@ fn test_minimax_message_serialization() {
 fn test_minimax_response_deserialization() {
     let mock_json = r#"
     {
-        "choices": [
+        "role": "assistant",
+        "content": [
             {
-                "message": {
-                    "role": "assistant",
-                    "content": "Here is the perfume catalog."
-                },
-                "finish_reason": "stop"
+                "type": "text",
+                "text": "Here is the perfume catalog."
             }
         ]
     }
     "#;
 
-    let response: MiniMaxResponse = serde_json::from_str(mock_json).expect("Failed to deserialize MiniMaxResponse");
-    let choice = response.choices.as_ref().unwrap().first().unwrap();
-    assert_eq!(choice.finish_reason.as_deref(), Some("stop"));
-    assert_eq!(choice.message.as_ref().unwrap().content.as_deref(), Some("Here is the perfume catalog."));
+    let response: AnthropicMessage = serde_json::from_str(mock_json).expect("Failed to deserialize AnthropicMessage");
+    assert_eq!(response.role, "assistant");
+    match response.content {
+        AnthropicContent::MultipleBlocks(blocks) => {
+            let block = blocks.first().unwrap();
+            match block {
+                AnthropicBlock::Text { text } => {
+                    assert_eq!(text, "Here is the perfume catalog.");
+                }
+                _ => panic!("Expected text block"),
+            }
+        }
+        _ => panic!("Expected multiple blocks"),
+    }
 }
 
 #[test]

@@ -6,7 +6,6 @@ pub struct AppConfig {
     pub telegram_token: String,
     pub admin_chat_id: i64,
     pub minimax_api_key: String,
-    pub minimax_group_id: String,
     pub gemini_api_key: String,
     pub openrouter_api_key: Option<String>,
     pub deepseek_api_key: Option<String>,
@@ -47,12 +46,6 @@ impl AppConfig {
             return Err(anyhow::anyhow!("MINIMAX_API_KEY cannot be empty"));
         }
 
-        let minimax_group_id = env::var("MINIMAX_GROUP_ID")
-            .map_err(|_| anyhow::anyhow!("MINIMAX_GROUP_ID environment variable not set"))?;
-        if minimax_group_id.trim().is_empty() {
-            return Err(anyhow::anyhow!("MINIMAX_GROUP_ID cannot be empty"));
-        }
-
         let gemini_api_key = env::var("GEMINI_API_KEY")
             .map_err(|_| anyhow::anyhow!("GEMINI_API_KEY environment variable not set"))?;
         if gemini_api_key.trim().is_empty() {
@@ -88,7 +81,6 @@ impl AppConfig {
             telegram_token,
             admin_chat_id,
             minimax_api_key,
-            minimax_group_id,
             gemini_api_key,
             openrouter_api_key,
             deepseek_api_key,
@@ -109,7 +101,6 @@ impl AppConfig {
         // NEVER log API keys or tokens, but log if they exist
         debug!("[Config.load] TELEGRAM_BOT_TOKEN set = true");
         debug!("[Config.load] MINIMAX_API_KEY set = true");
-        debug!("[Config.load] MINIMAX_GROUP_ID set = true");
         debug!("[Config.load] GEMINI_API_KEY set = true");
         debug!(
             "[Config.load] OPENROUTER_API_KEY set = {}",
@@ -178,9 +169,6 @@ impl AppConfig {
         if let Some(val) = settings_map.get("MINIMAX_API_KEY").filter(|s| !is_dummy(s)) {
             config.minimax_api_key = val.clone();
         }
-        if let Some(val) = settings_map.get("MINIMAX_GROUP_ID").filter(|s| !is_dummy(s)) {
-            config.minimax_group_id = val.clone();
-        }
         if let Some(val) = settings_map.get("GEMINI_API_KEY").filter(|s| !is_dummy(s)) {
             config.gemini_api_key = val.clone();
         }
@@ -205,9 +193,6 @@ impl AppConfig {
         }
         if is_dummy(&config.minimax_api_key) {
             config.minimax_api_key = "".to_string();
-        }
-        if is_dummy(&config.minimax_group_id) {
-            config.minimax_group_id = "".to_string();
         }
         if is_dummy(&config.gemini_api_key) {
             config.gemini_api_key = "".to_string();

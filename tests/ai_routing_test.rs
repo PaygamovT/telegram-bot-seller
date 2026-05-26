@@ -135,7 +135,6 @@ async fn test_orchestrator_failover_routing_on_error() {
         telegram_token: "dummy_tok".to_string(),
         admin_chat_id: 12345,
         minimax_api_key: "dummy_minimax".to_string(),
-        minimax_group_id: "dummy_grp".to_string(),
         gemini_api_key: "dummy_gemini".to_string(),
         openrouter_api_key: None,
         deepseek_api_key: None,
