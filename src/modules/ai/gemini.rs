@@ -340,3 +340,77 @@ async fn call_openrouter(
         }
     }
 }
+
+pub async fn run_text_dialog(
+    client: &Client,
+    config: &AppConfig,
+    prompt: &str,
+) -> AppResult<String> {
+    debug!("[AI.Gemini] Initiating Gemini text dialogue fallback...");
+    if let Some(ref openrouter_key) = config.openrouter_api_key {
+        let url = "https://openrouter.ai/api/v1/chat/completions";
+        let request_payload = serde_json::json!({
+            "model": DEFAULT_OPENROUTER_MODEL,
+            "messages": [
+                { "role": "system", "content": crate::modules::ai::minimax::SYSTEM_PROMPT },
+                { "role": "user", "content": prompt }
+            ]
+        });
+        
+        let req_builder = client
+            .post(url)
+            .header("Authorization", format!("Bearer {openrouter_key}"))
+            .header("Content-Type", "application/json")
+            .json(&request_payload);
+            
+        let res = crate::shared::alerting::send_with_retry(req_builder, 3).await
+            .map_err(AppError::Http)?;
+            
+        if !res.status().is_success() {
+            return Err(AppError::AiApi(format!("OpenRouter text dialog failed: HTTP {}", res.status())));
+        }
+        
+        let resp: serde_json::Value = res.json().await?;
+        let text = resp["choices"][0]["message"]["content"]
+            .as_str()
+            .ok_or_else(|| AppError::AiApi("Empty OpenRouter text response".to_string()))?
+            .to_string();
+            
+        Ok(text)
+    } else {
+        let url = format!(
+            "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
+            DEFAULT_DIRECT_GEMINI_MODEL, config.gemini_api_key
+        );
+        let request_payload = serde_json::json!({
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        { "text": format!("System instructions:\n{}\n\nUser request:\n{}", crate::modules::ai::minimax::SYSTEM_PROMPT, prompt) }
+                    ]
+                }
+            ]
+        });
+        
+        let req_builder = client
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .json(&request_payload);
+            
+        let res = crate::shared::alerting::send_with_retry(req_builder, 3).await
+            .map_err(AppError::Http)?;
+            
+        if !res.status().is_success() {
+            return Err(AppError::AiApi(format!("Gemini text dialog failed: HTTP {}", res.status())));
+        }
+        
+        let resp: serde_json::Value = res.json().await?;
+        let text = resp["candidates"][0]["content"]["parts"][0]["text"]
+            .as_str()
+            .ok_or_else(|| AppError::AiApi("Empty Gemini text response".to_string()))?
+            .to_string();
+            
+        Ok(text)
+    }
+}

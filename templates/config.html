@@ -95,6 +95,32 @@ input[type="text"]:focus, input[type="password"]:focus {
     color: #60a5fa;
     border: 1px solid rgba(59, 130, 246, 0.25);
 }
+.badge-source.default {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+}
+select {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+select:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 0 3px rgba(138, 92, 246, 0.2);
+}
+select option {
+    background: #111;
+    color: var(--text);
+}
 {% endblock %}
 
 {% block content %}
@@ -182,6 +208,44 @@ input[type="text"]:focus, input[type="password"]:focus {
                 </div>
                 <div class="input-desc">Ключ OpenRouter для дополнительного резервирования и гибридных моделей ИИ.</div>
                 <input type="password" id="openrouter_api_key" name="openrouter_api_key" value="{{ openrouter_api_key }}" placeholder="sk-or-v1-...">
+            </div>
+
+            <!-- Primary AI Model -->
+            <div class="form-group">
+                <div style="display: flex; align-items: center;">
+                    <label for="primary_ai_model">Основная модель ИИ (Primary Model)</label>
+                    <span class="badge-source {{ primary_ai_model_source }}">{{ primary_ai_model_source|upper }}</span>
+                </div>
+                <div class="input-desc">Основная модель для ведения диалогов и работы с каталогом/заказами.</div>
+                <select id="primary_ai_model" name="primary_ai_model">
+                    <option value="minimax" {% if primary_ai_model == "minimax" %}selected{% endif %}>MiniMax (abab6.5g-chat)</option>
+                    <option value="deepseek" {% if primary_ai_model == "deepseek" %}selected{% endif %}>DeepSeek (deepseek-chat)</option>
+                    <option value="gemini" {% if primary_ai_model == "gemini" %}selected{% endif %}>Google Gemini Pro</option>
+                </select>
+            </div>
+
+            <!-- Fallback AI Model -->
+            <div class="form-group">
+                <div style="display: flex; align-items: center;">
+                    <label for="fallback_ai_model">Резервная модель ИИ (Fallback Model)</label>
+                    <span class="badge-source {{ fallback_ai_model_source }}">{{ fallback_ai_model_source|upper }}</span>
+                </div>
+                <div class="input-desc">Модель для автоматического переключения при ошибках или сбоях основной модели.</div>
+                <select id="fallback_ai_model" name="fallback_ai_model">
+                    <option value="deepseek" {% if fallback_ai_model == "deepseek" %}selected{% endif %}>DeepSeek (deepseek-chat)</option>
+                    <option value="gemini" {% if fallback_ai_model == "gemini" %}selected{% endif %}>Google Gemini Pro</option>
+                    <option value="none" {% if fallback_ai_model == "none" %}selected{% endif %}>Без резервирования (None)</option>
+                </select>
+            </div>
+
+            <!-- DeepSeek API Key -->
+            <div class="form-group">
+                <div style="display: flex; align-items: center;">
+                    <label for="deepseek_api_key">DeepSeek API Key (Опционально)</label>
+                    <span class="badge-source {{ deepseek_api_key_source }}">{{ deepseek_api_source_class }}</span>
+                </div>
+                <div class="input-desc">Напрямую для api.deepseek.com. Если не указан, используется OpenRouter DeepSeek.</div>
+                <input type="password" id="deepseek_api_key" name="deepseek_api_key" value="{{ deepseek_api_key }}" placeholder="sk-...">
             </div>
 
             <!-- Form Actions -->

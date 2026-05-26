@@ -316,6 +316,13 @@ struct ConfigTemplate {
     openrouter_api_key: String,
     openrouter_api_key_source: &'static str,
     openrouter_api_source_class: &'static str,
+    primary_ai_model: String,
+    primary_ai_model_source: &'static str,
+    fallback_ai_model: String,
+    fallback_ai_model_source: &'static str,
+    deepseek_api_key: String,
+    deepseek_api_key_source: &'static str,
+    deepseek_api_source_class: &'static str,
 }
 
 /// GET /config - Load and display server settings configurations
@@ -385,6 +392,24 @@ async fn config_get_handler(
         }
     };
 
+    let (primary_ai_model, primary_ai_model_source) = match settings_map.get("primary_ai_model") {
+        Some(val) => (val.clone(), "db"),
+        None => ("minimax".to_string(), "default"),
+    };
+
+    let (fallback_ai_model, fallback_ai_model_source) = match settings_map.get("fallback_ai_model") {
+        Some(val) => (val.clone(), "db"),
+        None => ("deepseek".to_string(), "default"),
+    };
+
+    let (deepseek_api_key, deepseek_api_key_source, deepseek_api_source_class) = match settings_map.get("DEEPSEEK_API_KEY") {
+        Some(val) => (val.clone(), "db", "db"),
+        None => match &state.config.deepseek_api_key {
+            Some(val) => (val.clone(), "env", "env"),
+            None => ("".to_string(), "нет", "env"),
+        }
+    };
+
     let template = ConfigTemplate {
         saved: query.saved.unwrap_or(false),
         backup_success: query.backup_success.unwrap_or(false),
@@ -401,6 +426,13 @@ async fn config_get_handler(
         openrouter_api_key,
         openrouter_api_key_source,
         openrouter_api_source_class,
+        primary_ai_model,
+        primary_ai_model_source,
+        fallback_ai_model,
+        fallback_ai_model_source,
+        deepseek_api_key,
+        deepseek_api_key_source,
+        deepseek_api_source_class,
     };
 
     match template.render() {
@@ -423,6 +455,9 @@ pub struct ConfigForm {
     pub minimax_group_id: String,
     pub gemini_api_key: String,
     pub openrouter_api_key: Option<String>,
+    pub primary_ai_model: String,
+    pub fallback_ai_model: String,
+    pub deepseek_api_key: Option<String>,
 }
 
 /// POST /config - Save settings into database
@@ -450,6 +485,9 @@ async fn config_post_handler(
             stmt.execute(("MINIMAX_GROUP_ID", &form.minimax_group_id))?;
             stmt.execute(("GEMINI_API_KEY", &form.gemini_api_key))?;
             
+            stmt.execute(("primary_ai_model", &form.primary_ai_model))?;
+            stmt.execute(("fallback_ai_model", &form.fallback_ai_model))?;
+            
             if let Some(openrouter) = &form.openrouter_api_key {
                 let trimmed = openrouter.trim();
                 if !trimmed.is_empty() {
@@ -460,6 +498,19 @@ async fn config_post_handler(
                 }
             } else {
                 let mut del_stmt = tx.prepare("DELETE FROM settings WHERE key = 'OPENROUTER_API_KEY'")?;
+                del_stmt.execute([])?;
+            }
+
+            if let Some(deepseek) = &form.deepseek_api_key {
+                let trimmed = deepseek.trim();
+                if !trimmed.is_empty() {
+                    stmt.execute(("DEEPSEEK_API_KEY", trimmed))?;
+                } else {
+                    let mut del_stmt = tx.prepare("DELETE FROM settings WHERE key = 'DEEPSEEK_API_KEY'")?;
+                    del_stmt.execute([])?;
+                }
+            } else {
+                let mut del_stmt = tx.prepare("DELETE FROM settings WHERE key = 'DEEPSEEK_API_KEY'")?;
                 del_stmt.execute([])?;
             }
         }

@@ -9,6 +9,7 @@ pub struct AppConfig {
     pub minimax_group_id: String,
     pub gemini_api_key: String,
     pub openrouter_api_key: Option<String>,
+    pub deepseek_api_key: Option<String>,
     pub database_path: String,
     pub admin_server_port: u16,
     pub rust_log: String,
@@ -65,6 +66,10 @@ impl AppConfig {
             warn!("[Config.load] OPENROUTER_API_KEY not set, Gemini-only mode");
         }
 
+        let deepseek_api_key = env::var("DEEPSEEK_API_KEY")
+            .ok()
+            .filter(|s| !s.trim().is_empty());
+
         let database_path =
             env::var("DATABASE_PATH").unwrap_or_else(|_| "./data/bot.db".to_string());
         if database_path.trim().is_empty() {
@@ -86,6 +91,7 @@ impl AppConfig {
             minimax_group_id,
             gemini_api_key,
             openrouter_api_key,
+            deepseek_api_key,
             database_path,
             admin_server_port,
             rust_log,
@@ -108,6 +114,10 @@ impl AppConfig {
         debug!(
             "[Config.load] OPENROUTER_API_KEY set = {}",
             config.openrouter_api_key.is_some()
+        );
+        debug!(
+            "[Config.load] DEEPSEEK_API_KEY set = {}",
+            config.deepseek_api_key.is_some()
         );
 
         info!("[Config.load] Configuration loaded successfully");
