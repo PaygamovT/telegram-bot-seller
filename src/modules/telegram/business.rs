@@ -18,6 +18,7 @@ pub struct Message {
     pub text: Option<String>,
     pub voice: Option<Voice>,
     pub photo: Option<Vec<PhotoSize>>,
+    pub business_connection_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -63,14 +64,26 @@ pub struct UpdatesResponse {
 }
 
 /// Send a text message to a chat
-pub async fn send_message(client: &Client, token: &str, chat_id: i64, text: &str) -> AppResult<()> {
-    debug!("[Telegram.business] Sending message to chat {chat_id}: {text}");
+pub async fn send_message(
+    client: &Client,
+    token: &str,
+    chat_id: i64,
+    text: &str,
+    business_connection_id: Option<&str>,
+) -> AppResult<()> {
+    debug!("[Telegram.business] Sending message to chat {chat_id} (business_connection: {:?}): {text}", business_connection_id);
     let url = format!("https://api.telegram.org/bot{token}/sendMessage");
 
-    let payload = serde_json::json!({
+    let mut payload = serde_json::json!({
         "chat_id": chat_id,
         "text": text
     });
+
+    if let Some(conn_id) = business_connection_id {
+        if let Some(obj) = payload.as_object_mut() {
+            obj.insert("business_connection_id".to_string(), serde_json::json!(conn_id));
+        }
+    }
 
     let res = client.post(&url)
         .json(&payload)
@@ -94,11 +107,12 @@ pub async fn send_reaction(
     chat_id: i64,
     message_id: i64,
     emoji: &str,
+    business_connection_id: Option<&str>,
 ) -> AppResult<()> {
-    debug!("[Telegram.business] Adding reaction '{emoji}' to message {message_id} in chat {chat_id}");
+    debug!("[Telegram.business] Adding reaction '{emoji}' to message {message_id} in chat {chat_id} (business_connection: {:?})", business_connection_id);
     let url = format!("https://api.telegram.org/bot{token}/setMessageReaction");
 
-    let payload = serde_json::json!({
+    let mut payload = serde_json::json!({
         "chat_id": chat_id,
         "message_id": message_id,
         "reaction": [
@@ -108,6 +122,12 @@ pub async fn send_reaction(
             }
         ]
     });
+
+    if let Some(conn_id) = business_connection_id {
+        if let Some(obj) = payload.as_object_mut() {
+            obj.insert("business_connection_id".to_string(), serde_json::json!(conn_id));
+        }
+    }
 
     let res = client.post(&url)
         .json(&payload)

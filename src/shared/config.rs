@@ -124,4 +124,104 @@ impl AppConfig {
 
         Ok(config)
     }
+
+    pub async fn load_dynamic(&self, pool: &deadpool_sqlite::Pool) -> Self {
+        let conn = match pool.get().await {
+            Ok(c) => c,
+            Err(e) => {
+                warn!("[Config.load_dynamic] Failed to get database connection from pool: {e}");
+                return self.clone();
+            }
+        };
+
+        let settings_res = conn.interact(|conn| -> Result<std::collections::HashMap<String, String>, rusqlite::Error> {
+            let mut stmt = conn.prepare("SELECT key, value FROM settings")?;
+            let rows = stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?;
+            
+            let mut map = std::collections::HashMap::new();
+            for row in rows {
+                let (k, v) = row?;
+                map.insert(k, v);
+            }
+            Ok(map)
+        }).await;
+
+        let settings_map = match settings_res {
+            Ok(Ok(map)) => map,
+            _ => return self.clone(),
+        };
+
+        let mut config = self.clone();
+
+        // Helper to check and filter dummy keys
+        let is_dummy = |s: &str| {
+            let s = s.trim();
+            s.is_empty()
+                || s == "123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+                || s == "minimax_dummy_key"
+                || s == "minimax_dummy_group"
+                || s == "gemini_dummy_key"
+                || s == "openrouter_dummy_key"
+                || s == "deepseek_dummy_key"
+        };
+
+        if let Some(val) = settings_map.get("TELEGRAM_BOT_TOKEN").filter(|s| !is_dummy(s)) {
+            config.telegram_token = val.clone();
+        }
+        if let Some(val) = settings_map.get("ADMIN_CHAT_ID").filter(|s| !is_dummy(s)) {
+            if let Ok(parsed) = val.trim().parse::<i64>() {
+                config.admin_chat_id = parsed;
+            }
+        }
+        if let Some(val) = settings_map.get("MINIMAX_API_KEY").filter(|s| !is_dummy(s)) {
+            config.minimax_api_key = val.clone();
+        }
+        if let Some(val) = settings_map.get("MINIMAX_GROUP_ID").filter(|s| !is_dummy(s)) {
+            config.minimax_group_id = val.clone();
+        }
+        if let Some(val) = settings_map.get("GEMINI_API_KEY").filter(|s| !is_dummy(s)) {
+            config.gemini_api_key = val.clone();
+        }
+        if let Some(val) = settings_map.get("OPENROUTER_API_KEY") {
+            if is_dummy(val) {
+                config.openrouter_api_key = None;
+            } else {
+                config.openrouter_api_key = Some(val.clone());
+            }
+        }
+        if let Some(val) = settings_map.get("DEEPSEEK_API_KEY") {
+            if is_dummy(val) {
+                config.deepseek_api_key = None;
+            } else {
+                config.deepseek_api_key = Some(val.clone());
+            }
+        }
+
+        // Sanitize the base/env config values if they are dummy
+        if is_dummy(&config.telegram_token) {
+            config.telegram_token = "".to_string();
+        }
+        if is_dummy(&config.minimax_api_key) {
+            config.minimax_api_key = "".to_string();
+        }
+        if is_dummy(&config.minimax_group_id) {
+            config.minimax_group_id = "".to_string();
+        }
+        if is_dummy(&config.gemini_api_key) {
+            config.gemini_api_key = "".to_string();
+        }
+        if config.openrouter_api_key.as_ref().map(|s| is_dummy(s)).unwrap_or(false) {
+            config.openrouter_api_key = None;
+        }
+        if config.deepseek_api_key.as_ref().map(|s| is_dummy(s)).unwrap_or(false) {
+            config.deepseek_api_key = None;
+        }
+
+        // Propagate dynamic alerting credentials to alerting.rs dynamically!
+        crate::shared::alerting::update_alert_config(config.admin_chat_id, &config.telegram_token);
+
+        config
+    }
 }

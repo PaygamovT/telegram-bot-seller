@@ -159,9 +159,13 @@ pub async fn process_multimodal(
     if let Some(ref openrouter_key) = config.openrouter_api_key {
         debug!("[AI.Gemini] Route: OpenRouter API");
         call_openrouter(client, openrouter_key, base64_data, mime_type, prompt).await
-    } else {
+    } else if !config.gemini_api_key.trim().is_empty() && config.gemini_api_key != "gemini_dummy_key" {
         debug!("[AI.Gemini] Route: Direct Google Gemini API");
         call_direct_gemini(client, &config.gemini_api_key, base64_data, mime_type, prompt).await
+    } else {
+        let err_msg = "Gemini API key is not configured in settings or environment. Please go to web settings to configure it.";
+        error!("[AI.Gemini] {err_msg}");
+        return Err(AppError::AiApi(err_msg.to_string()));
     }
 }
 
@@ -377,7 +381,7 @@ pub async fn run_text_dialog(
             .to_string();
             
         Ok(text)
-    } else {
+    } else if !config.gemini_api_key.trim().is_empty() && config.gemini_api_key != "gemini_dummy_key" {
         let url = format!(
             "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
             DEFAULT_DIRECT_GEMINI_MODEL, config.gemini_api_key
@@ -412,5 +416,9 @@ pub async fn run_text_dialog(
             .to_string();
             
         Ok(text)
+    } else {
+        let err_msg = "Gemini API key is not configured in settings or environment. Please go to web settings to configure it.";
+        error!("[AI.Gemini] {err_msg}");
+        return Err(AppError::AiApi(err_msg.to_string()));
     }
 }

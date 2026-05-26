@@ -1,13 +1,24 @@
 use crate::shared::error::{AppError, AppResult};
-use std::sync::OnceLock;
+use std::sync::{OnceLock, RwLock};
 use tracing::{error, info, warn};
 
+#[derive(Clone)]
 struct AlertConfig {
     admin_chat_id: i64,
     telegram_token: String,
 }
 
 static ALERT_CONFIG: OnceLock<AlertConfig> = OnceLock::new();
+static DYNAMIC_ALERT_CONFIG: RwLock<Option<AlertConfig>> = RwLock::new(None);
+
+pub fn update_alert_config(admin_chat_id: i64, telegram_token: &str) {
+    if let Ok(mut guard) = DYNAMIC_ALERT_CONFIG.write() {
+        *guard = Some(AlertConfig {
+            admin_chat_id,
+            telegram_token: telegram_token.to_string(),
+        });
+    }
+}
 
 pub fn install_panic_hook(admin_chat_id: i64, telegram_token: &str) {
     info!("[Alerting.install_panic_hook] Panic hook installed for chat_id={admin_chat_id}");
@@ -38,7 +49,17 @@ pub fn install_panic_hook(admin_chat_id: i64, telegram_token: &str) {
         let formatted_msg = format!("🚨 *Application Panic!* 💥\n\n*Error*: {}\n*Location*: {}", message, location);
         error!("[PANIC] {message} at {location}");
 
-        if let Some(config) = ALERT_CONFIG.get() {
+        let alert_cfg = {
+            if let Ok(guard) = DYNAMIC_ALERT_CONFIG.read() {
+                guard.clone()
+            } else {
+                None
+            }
+        }.or_else(|| {
+            ALERT_CONFIG.get().cloned()
+        });
+
+        if let Some(config) = alert_cfg {
             let token = config.telegram_token.clone();
             let chat_id = config.admin_chat_id;
             let formatted_msg_clone = formatted_msg.clone();
@@ -70,7 +91,18 @@ pub fn install_panic_hook(admin_chat_id: i64, telegram_token: &str) {
 
 pub async fn send_alert(message: &str) -> AppResult<()> {
     warn!("[Alerting.send_alert] {message}");
-    if let Some(config) = ALERT_CONFIG.get() {
+    let alert_cfg = {
+        if let Ok(guard) = DYNAMIC_ALERT_CONFIG.read() {
+            guard.clone()
+            
+        } else {
+            None
+        }
+    }.or_else(|| {
+        ALERT_CONFIG.get().cloned()
+    });
+
+    if let Some(config) = alert_cfg {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(15))
             .build()

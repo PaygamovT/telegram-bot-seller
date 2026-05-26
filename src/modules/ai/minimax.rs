@@ -87,6 +87,12 @@ pub async fn run_dialog(
     chat_id: ChatId,
     user_text: &str,
 ) -> AppResult<(String, Option<String>)> {
+    if config.minimax_api_key.trim().is_empty() || config.minimax_api_key == "minimax_dummy_key" {
+        let err_msg = "MiniMax API key is not configured in settings or environment. Please go to web settings to configure it.";
+        error!("[AI.MiniMax] {err_msg}");
+        return Err(AppError::AiApi(err_msg.to_string()));
+    }
+
     info!("[AI.MiniMax] Executing dialog turn for chat_id: {chat_id}");
 
     // 1. Get or create history for this ChatId

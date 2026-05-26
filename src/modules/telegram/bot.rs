@@ -10,18 +10,6 @@ use tracing::{info, warn, error, debug};
 pub async fn run(pool: DbPool, config: AppConfig) -> AppResult<()> {
     info!("🤖 Starting Telegram Bot polling loop...");
 
-    // Check if the token is empty or dummy
-    let token = config.telegram_token.trim();
-    if token.is_empty() || token == "123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" {
-        warn!(
-            "⚠️ TELEGRAM_BOT_TOKEN is not configured or uses a dummy placeholder! Polling will enter standby mode."
-        );
-        loop {
-            tokio::time::sleep(Duration::from_secs(60)).await;
-            debug!("[Telegram.bot] Standby loop: waiting for a valid bot token");
-        }
-    }
-
     let client = Client::builder()
         .timeout(Duration::from_secs(45))
         .build()?;
@@ -29,6 +17,19 @@ pub async fn run(pool: DbPool, config: AppConfig) -> AppResult<()> {
     let mut offset = 0i64;
 
     loop {
+        // Load the dynamic config on every iteration
+        let active_config = config.load_dynamic(&pool).await;
+        let token = active_config.telegram_token.trim();
+
+        // Check if the token is empty or dummy
+        if token.is_empty() || token == "123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" {
+            warn!(
+                "⚠️ TELEGRAM_BOT_TOKEN is not configured or uses a dummy placeholder! Polling will enter standby mode (checking again in 10s)..."
+            );
+            tokio::time::sleep(Duration::from_secs(10)).await;
+            continue;
+        }
+
         debug!("[Telegram.bot] Long-polling for updates (offset: {offset})...");
         let url = format!(
             "https://api.telegram.org/bot{token}/getUpdates?offset={offset}&timeout=30&allowed_updates=[\"message\",\"business_message\"]"
@@ -74,7 +75,7 @@ pub async fn run(pool: DbPool, config: AppConfig) -> AppResult<()> {
             if let Some(message) = message_opt {
                 let client_clone = client.clone();
                 let pool_clone = pool.clone();
-                let config_clone = config.clone();
+                let config_clone = active_config.clone();
                 let msg_clone = message.clone();
 
                 // Process update asynchronously to prevent blocking the poll loop
@@ -83,7 +84,13 @@ pub async fn run(pool: DbPool, config: AppConfig) -> AppResult<()> {
                         error!("[Telegram.bot] Error handling message {}: {:?}", msg_clone.message_id, err);
                         
                         // Attempt to send error reply back
-                        let _ = send_message(&client_clone, &config_clone.telegram_token, msg_clone.chat.id, "⚠️ An error occurred while processing your message.").await;
+                        let _ = send_message(
+                            &client_clone,
+                            &config_clone.telegram_token,
+                            msg_clone.chat.id,
+                            "⚠️ An error occurred while processing your message.",
+                            msg_clone.business_connection_id.as_deref(),
+                        ).await;
                     }
                 });
             }
