@@ -73,3 +73,39 @@ pub async fn save_or_update(pool: &DbPool, contact: &Contact) -> AppResult<()> {
     debug!("[Contacts.repo] Contact saved successfully for chat_id={}", contact.chat_id);
     Ok(())
 }
+
+pub async fn fetch_all(pool: &DbPool) -> AppResult<Vec<Contact>> {
+    debug!("[Contacts.repo] Fetching all contacts");
+    let conn = pool.get().await?;
+    let contacts = conn
+        .interact(|conn| -> Result<_, rusqlite::Error> {
+            let mut stmt = conn.prepare(
+                "SELECT chat_id, first_name, address, phone_number, username, nickname FROM contacts ORDER BY ROWID DESC"
+            )?;
+            let contact_iter = stmt.query_map([], |row| {
+                Ok(Contact {
+                    chat_id: ChatId(row.get(0)?),
+                    first_name: row.get(1)?,
+                    address: row.get(2)?,
+                    phone_number: row.get(3)?,
+                    username: row.get(4)?,
+                    nickname: row.get(5)?,
+                })
+            })?;
+
+            let mut list = Vec::new();
+            for contact in contact_iter {
+                list.push(contact?);
+            }
+            Ok(list)
+        })
+        .await
+        .map_err(|e| {
+            error!("[Contacts.repo] fetch_all interact error: {e}");
+            AppError::Database(rusqlite::Error::ToSqlConversionFailure(
+                e.to_string().into(),
+            ))
+        })??;
+
+    Ok(contacts)
+}

@@ -16,3 +16,8 @@ pub async fn get_contacts(pool: &DbPool, chat_id: ChatId) -> AppResult<Option<Co
 pub async fn update_contacts(pool: &DbPool, contact: &Contact) -> AppResult<()> {
     repo::save_or_update(pool, contact).await
 }
+
+/// Fetch all contact interactions
+pub async fn get_all_contacts(pool: &DbPool) -> AppResult<Vec<Contact>> {
+    repo::fetch_all(pool).await
+}

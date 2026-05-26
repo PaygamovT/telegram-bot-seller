@@ -7,6 +7,7 @@ pub enum OrderStatus {
     Pending,
     Paid,
     Shipped,
+    Delivered,
     Cancelled,
 }
 
@@ -16,6 +17,7 @@ impl std::fmt::Display for OrderStatus {
             Self::Pending => "pending",
             Self::Paid => "paid",
             Self::Shipped => "shipped",
+            Self::Delivered => "delivered",
             Self::Cancelled => "cancelled",
         };
         write!(f, "{}", s)
@@ -29,6 +31,7 @@ impl std::str::FromStr for OrderStatus {
             "pending" => Ok(Self::Pending),
             "paid" => Ok(Self::Paid),
             "shipped" => Ok(Self::Shipped),
+            "delivered" => Ok(Self::Delivered),
             "cancelled" => Ok(Self::Cancelled),
             _ => Err(format!("Unknown order status: {s}")),
         }

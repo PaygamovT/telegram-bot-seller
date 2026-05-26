@@ -261,6 +261,110 @@ tr:hover td {
     color: var(--text-secondary);
     font-size: 0.95rem;
 }
+
+/* Premium Pipeline Dashboard CSS */
+.pipeline-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+    align-items: start;
+}
+
+@media (min-width: 768px) {
+    .pipeline-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 1200px) {
+    .pipeline-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+.pipeline-col {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 1.25rem;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-height: 480px;
+    transition: border-color 0.3s ease;
+}
+
+.pipeline-col:hover {
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.pipeline-col-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.pipeline-col-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.pipeline-col-subtitle {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.15rem;
+}
+
+.pipeline-col-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    flex-grow: 1;
+}
+
+.pipeline-item {
+    background: rgba(255, 255, 255, 0.015);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 12px;
+    padding: 0.9rem;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+.pipeline-item:hover {
+    background: rgba(255, 255, 255, 0.035);
+    border-color: rgba(139, 92, 246, 0.25);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.25);
+}
+
+.pipeline-item-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text);
+}
+
+.pipeline-item-meta {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.pipeline-item-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+}
 {% endblock %}
 
 {% block content %}
@@ -337,49 +441,168 @@ tr:hover td {
     </div>
 </div>
 
-<!-- Recent Orders Table -->
-<div class="table-container">
-    <div class="table-title">
-        <span>Последние заказы</span>
-        <span style="font-size: 0.85rem; font-weight: normal; color: var(--text-secondary);">Топ-10 транзакций</span>
-    </div>
-    
-    {% if recent_orders.is_empty() %}
-        <div class="empty-state">
-            <span style="font-size: 2rem; display: block; margin-bottom: 0.5rem;">📦</span>
-            Заказов пока не поступало.
+<!-- Recent Orders Pipeline -->
+<div class="pipeline-grid">
+    <!-- COLUMN 1: Dialogue (Bot make conversation with client) -->
+    <div class="pipeline-col">
+        <div class="pipeline-col-header">
+            <div class="pipeline-col-title">
+                <span>💬</span> Контакты
+            </div>
+            <div class="pipeline-col-subtitle">Бот общается с клиентами</div>
         </div>
-    {% else %}
-        <table>
-            <thead>
-                <tr>
-                    <th>ID Заказа</th>
-                    <th>Клиент</th>
-                    <th>Имя пользователя</th>
-                    <th>Сумма</th>
-                    <th>Статус</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for order in recent_orders %}
-                <tr>
-                    <td style="font-family: monospace; font-weight: 600; color: #8b5cf6;">{{ order.order_id }}</td>
-                    <td>{{ order.customer_name }}</td>
-                    <td>
-                        {% if order.username.is_empty() %}
-                            <span style="color: var(--text-secondary); font-style: italic;">нет</span>
+        <div class="pipeline-col-content">
+            {% if contacts.is_empty() %}
+                <div class="empty-state" style="padding: 2rem 0; font-size: 0.85rem;">
+                    <span>💤</span> Нет активных диалогов
+                </div>
+            {% else %}
+                {% for contact in contacts %}
+                <div class="pipeline-item">
+                    <div class="pipeline-item-title" style="color: #c084fc;">
+                        {% if let Some(nickname) = contact.nickname %}
+                            {{ nickname }}
+                        {% else if let Some(first_name) = contact.first_name %}
+                            {{ first_name }}
                         {% else %}
-                            <a href="https://t.me/{{ order.username }}" target="_blank" style="color: #3b82f6; text-decoration: none; border-bottom: 1px dashed rgba(59, 130, 246, 0.4);">@{{ order.username }}</a>
+                            Чат #{{ contact.chat_id.0 }}
                         {% endif %}
-                    </td>
-                    <td style="font-weight: 600;">{{ order.total_amount }} ₽</td>
-                    <td>
-                        <span class="status-badge {{ order.status }}">{{ order.status }}</span>
-                    </td>
-                </tr>
+                    </div>
+                    <div class="pipeline-item-meta">
+                        <strong>Chat ID:</strong> {{ contact.chat_id.0 }}<br>
+                        <strong>Telegram:</strong>
+                        {% if let Some(username) = contact.username %}
+                            <a href="https://t.me/{{ username }}" target="_blank" style="color: #60a5fa; text-decoration: none;">@{{ username }}</a>
+                        {% else %}
+                            <span style="color: var(--text-secondary); font-style: italic;">нет</span>
+                        {% endif %}
+                        {% if let Some(phone) = contact.phone_number %}
+                            <br><strong>Тел:</strong> {{ phone }}
+                        {% endif %}
+                    </div>
+                </div>
                 {% endfor %}
-            </tbody>
-        </table>
-    {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- COLUMN 2: Client Order (Orders created by client) -->
+    <div class="pipeline-col">
+        <div class="pipeline-col-header">
+            <div class="pipeline-col-title">
+                <span>🛍️</span> Новый заказ
+            </div>
+            <div class="pipeline-col-subtitle">Оформленные заказы клиентов</div>
+        </div>
+        <div class="pipeline-col-content">
+            {% if !has_new_orders %}
+                <div class="empty-state" style="padding: 2rem 0; font-size: 0.85rem;">
+                    <span>📦</span> Нет новых заказов
+                </div>
+            {% else %}
+                {% for order in recent_orders %}
+                    {% if order.status == "pending" || order.status == "paid" %}
+                    <div class="pipeline-item">
+                        <div class="pipeline-item-title" style="color: #fbbf24; font-family: monospace; font-weight: 700;">
+                            {{ order.order_id }}
+                        </div>
+                        <div class="pipeline-item-meta">
+                            <strong>Клиент:</strong> {{ order.customer_name }}<br>
+                            <strong>Сумма:</strong> {{ order.total_amount }} ₽<br>
+                            <strong>Статус:</strong> 
+                            <span class="status-badge {{ order.status }}" style="padding: 0.15rem 0.4rem; font-size: 0.7rem; border-radius: 4px;">
+                                {% if order.status == "pending" %}ожидание{% else %}оплачен{% endif %}
+                            </span>
+                        </div>
+                        <div class="pipeline-item-actions">
+                            <form action="/admin/order/update_status" method="POST" style="width: 100%;">
+                                <input type="hidden" name="order_id" value="{{ order.order_id }}">
+                                <input type="hidden" name="status" value="shipped">
+                                <button type="submit" class="btn" style="width: 100%; font-size: 0.75rem; padding: 0.45rem; justify-content: center; border-radius: 8px;" title="Отправить товар">
+                                    <span>🚚</span> Отправить
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- COLUMN 3: Product Sent (We Send Product) -->
+    <div class="pipeline-col">
+        <div class="pipeline-col-header">
+            <div class="pipeline-col-title">
+                <span>🚚</span> Доставка
+            </div>
+            <div class="pipeline-col-subtitle">Товар передан в службу доставки</div>
+        </div>
+        <div class="pipeline-col-content">
+            {% if !has_shipping_orders %}
+                <div class="empty-state" style="padding: 2rem 0; font-size: 0.85rem;">
+                    <span>⏳</span> Нет товаров в пути
+                </div>
+            {% else %}
+                {% for order in recent_orders %}
+                    {% if order.status == "shipped" %}
+                    <div class="pipeline-item">
+                        <div class="pipeline-item-title" style="color: #60a5fa; font-family: monospace; font-weight: 700;">
+                            {{ order.order_id }}
+                        </div>
+                        <div class="pipeline-item-meta">
+                            <strong>Клиент:</strong> {{ order.customer_name }}<br>
+                            <strong>Сумма:</strong> {{ order.total_amount }} ₽<br>
+                            <strong>Статус:</strong> 
+                            <span class="status-badge shipped" style="padding: 0.15rem 0.4rem; font-size: 0.7rem; background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 4px;">доставка</span>
+                        </div>
+                        <div class="pipeline-item-actions">
+                            <form action="/admin/order/update_status" method="POST" style="width: 100%;">
+                                <input type="hidden" name="order_id" value="{{ order.order_id }}">
+                                <input type="hidden" name="status" value="delivered">
+                                <button type="submit" class="btn" style="width: 100%; font-size: 0.75rem; padding: 0.45rem; justify-content: center; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 8px;" title="Отметить как доставленный">
+                                    <span>✅</span> Получен
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- COLUMN 4: Got Product (Client got product) -->
+    <div class="pipeline-col">
+        <div class="pipeline-col-header">
+            <div class="pipeline-col-title">
+                <span>🎉</span> Выполнено
+            </div>
+            <div class="pipeline-col-subtitle">Клиент успешно получил товар</div>
+        </div>
+        <div class="pipeline-col-content">
+            {% if !has_delivered_orders %}
+                <div class="empty-state" style="padding: 2rem 0; font-size: 0.85rem;">
+                    <span>💎</span> Нет выполненных заказов
+                </div>
+            {% else %}
+                {% for order in recent_orders %}
+                    {% if order.status == "delivered" %}
+                    <div class="pipeline-item" style="border-color: rgba(16, 185, 129, 0.15);">
+                        <div class="pipeline-item-title" style="color: #34d399; font-family: monospace; font-weight: 700;">
+                            {{ order.order_id }}
+                        </div>
+                        <div class="pipeline-item-meta">
+                            <strong>Клиент:</strong> {{ order.customer_name }}<br>
+                            <strong>Сумма:</strong> {{ order.total_amount }} ₽<br>
+                            <strong>Статус:</strong> 
+                            <span class="status-badge paid" style="padding: 0.15rem 0.4rem; font-size: 0.7rem; border-radius: 4px;">выполнен</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
 </div>
 {% endblock %}

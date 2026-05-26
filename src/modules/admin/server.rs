@@ -1,6 +1,6 @@
 use axum::{
     body::Body,
-    extract::{FromRequestParts, Query, State, Multipart},
+    extract::{FromRequestParts, Query, State},
     extract::ws::{WebSocketUpgrade, WebSocket, Message},
     http::{header, request::Parts, StatusCode},
     response::{IntoResponse, Redirect, Response},
@@ -88,7 +88,11 @@ struct DashboardTemplate {
     storage_percentage: f32,
     battery_charge: u8,
     bot_status: String,
+    contacts: Vec<crate::modules::contacts::Contact>,
     recent_orders: Vec<RecentOrder>,
+    has_new_orders: bool,
+    has_shipping_orders: bool,
+    has_delivered_orders: bool,
 }
 
 struct SystemResources {
@@ -205,7 +209,7 @@ async fn dashboard_handler(
         }
     };
 
-    // Query Metrics: total orders, total paid revenue, top-10 recent orders
+    // Query Metrics: total orders, total paid revenue, top-100 recent orders
     let stats_res = conn.interact(move |conn| -> Result<_, rusqlite::Error> {
         // 1. Count Total Orders
         let mut order_cnt_stmt = conn.prepare("SELECT COUNT(*) FROM orders")?;
@@ -216,13 +220,13 @@ async fn dashboard_handler(
         let mut rev_stmt = conn.prepare("SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status = 'paid'")?;
         let total_revenue: i64 = rev_stmt.query_row([], |r| r.get(0))?;
 
-        // 3. Load Recent 10 Orders
+        // 3. Load Recent 100 Orders
         let mut recent_stmt = conn.prepare(
             "SELECT o.order_id, COALESCE(c.first_name, 'Unknown'), COALESCE(c.username, ''), o.status, o.total_amount \
              FROM orders o \
              LEFT JOIN contacts c ON o.chat_id = c.chat_id \
              ORDER BY o.ROWID DESC \
-             LIMIT 10"
+             LIMIT 100"
         )?;
 
         let recent_orders = recent_stmt.query_map([], |row| {
@@ -263,6 +267,14 @@ async fn dashboard_handler(
         _ => raw_bot_status,
     };
 
+    let contacts = crate::modules::contacts::get_all_contacts(&state.pool)
+        .await
+        .unwrap_or_default();
+
+    let has_new_orders = recent_orders.iter().any(|o| o.status == "pending" || o.status == "paid");
+    let has_shipping_orders = recent_orders.iter().any(|o| o.status == "shipped");
+    let has_delivered_orders = recent_orders.iter().any(|o| o.status == "delivered");
+
     let resources = get_system_resources();
 
     let template = DashboardTemplate {
@@ -277,7 +289,11 @@ async fn dashboard_handler(
         storage_percentage: resources.storage_percentage,
         battery_charge: resources.battery_charge,
         bot_status,
+        contacts,
         recent_orders,
+        has_new_orders,
+        has_shipping_orders,
+        has_delivered_orders,
     };
 
     match template.render() {
@@ -287,6 +303,47 @@ async fn dashboard_handler(
             .unwrap(),
         Err(err) => {
             error!("[AdminServer.dashboard] Askama rendering failed: {}", err);
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct OrderStatusUpdateForm {
+    pub order_id: String,
+    pub status: String,
+}
+
+/// POST /admin/order/update_status - Updates the status of a specific order instantly
+async fn order_status_update_handler(
+    _auth: BasicAuth,
+    State(state): State<AppState>,
+    Form(form): Form<OrderStatusUpdateForm>,
+) -> impl IntoResponse {
+    let conn = match state.pool.get().await {
+        Ok(c) => c,
+        Err(e) => {
+            error!("[AdminServer.order_status_update] DB pool acquisition failure: {}", e);
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+
+    let order_id_clone = form.order_id.clone();
+    let status_clone = form.status.clone();
+
+    let update_res = conn.interact(move |conn| -> Result<_, rusqlite::Error> {
+        let mut stmt = conn.prepare("UPDATE orders SET status = ? WHERE order_id = ?")?;
+        stmt.execute((status_clone, order_id_clone))?;
+        Ok(())
+    }).await;
+
+    match update_res {
+        Ok(Ok(())) => {
+            info!("[AdminServer.order_status_update] Order {} status updated to {}", form.order_id, form.status);
+            Redirect::to("/").into_response()
+        }
+        err => {
+            error!("[AdminServer.order_status_update] DB update failed: {:?}", err);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
@@ -624,200 +681,6 @@ async fn ws_handler(
 }
 
 // ==========================================
-// Media Management Routing Controllers
-// ==========================================
-
-pub struct WebMediaItem {
-    pub id: i64,
-    pub title: String,
-    pub purpose: String,
-    pub is_allowed_for_ai: bool,
-    pub file_path: String,
-    pub filename: String,
-}
-
-#[derive(Template)]
-#[template(path = "media.html")]
-struct MediaTemplate {
-    media_list: Vec<WebMediaItem>,
-}
-
-/// GET /media - Renders Media Catalog assets
-async fn media_get_handler(
-    _auth: BasicAuth,
-    State(state): State<AppState>,
-) -> impl IntoResponse {
-    match crate::modules::media_manager::get_all_media(&state.pool).await {
-        Ok(media_list) => {
-            let web_media_list = media_list.into_iter().map(|item| {
-                let filename = std::path::Path::new(&item.file_path)
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("")
-                    .to_string();
-                WebMediaItem {
-                    id: item.id.unwrap_or_default(),
-                    title: item.title,
-                    purpose: item.purpose,
-                    is_allowed_for_ai: item.is_allowed_for_ai,
-                    file_path: item.file_path,
-                    filename,
-                }
-            }).collect::<Vec<_>>();
-            let template = MediaTemplate { media_list: web_media_list };
-            match template.render() {
-                Ok(html) => Response::builder()
-                    .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
-                    .body(Body::from(html))
-                    .unwrap()
-                    .into_response(),
-                Err(err) => {
-                    error!("[AdminServer.media_get] Askama rendering failed: {}", err);
-                    StatusCode::INTERNAL_SERVER_ERROR.into_response()
-                }
-            }
-        }
-        Err(err) => {
-            error!("[AdminServer.media_get] DB Media fetch failure: {}", err);
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
-        }
-    }
-}
-
-/// GET /media/view/:filename - Dynamically serves uploaded image files securely
-async fn serve_media_handler(
-    axum::extract::Path(filename): axum::extract::Path<String>,
-) -> impl IntoResponse {
-    let clean_filename = filename.replace("..", "").replace("/", "").replace("\\", "");
-    if clean_filename.is_empty() {
-        return StatusCode::BAD_REQUEST.into_response();
-    }
-
-    let path = format!("./data/media/{}", clean_filename);
-    if let Ok(bytes) = std::fs::read(&path) {
-        let mime = if clean_filename.ends_with(".png") {
-            "image/png"
-        } else if clean_filename.ends_with(".gif") {
-            "image/gif"
-        } else {
-            "image/jpeg"
-        };
-        Response::builder()
-            .header(header::CONTENT_TYPE, mime)
-            .body(Body::from(bytes))
-            .unwrap()
-    } else {
-        StatusCode::NOT_FOUND.into_response()
-    }
-}
-
-/// POST /media/upload - Handles multi-part files upload
-async fn media_upload_handler(
-    _auth: BasicAuth,
-    State(state): State<AppState>,
-    mut multipart: Multipart,
-) -> impl IntoResponse {
-    let mut title = String::new();
-    let mut purpose = String::new();
-    let mut file_bytes = Vec::new();
-    let mut original_filename = String::new();
-
-    while let Ok(Some(field)) = multipart.next_field().await {
-        let name = field.name().unwrap_or_default().to_string();
-        if name == "title" {
-            title = field.text().await.unwrap_or_default();
-        } else if name == "purpose" {
-            purpose = field.text().await.unwrap_or_default();
-        } else if name == "file" {
-            original_filename = field.file_name().unwrap_or_default().to_string();
-            if let Ok(bytes) = field.bytes().await {
-                file_bytes = bytes.to_vec();
-            }
-        }
-    }
-
-    if title.trim().is_empty() || purpose.trim().is_empty() || file_bytes.is_empty() {
-        return StatusCode::BAD_REQUEST.into_response();
-    }
-
-    let clean_filename = original_filename.replace("..", "").replace("/", "").replace("\\", "");
-    if clean_filename.is_empty() {
-        return StatusCode::BAD_REQUEST.into_response();
-    }
-
-    let dir = "./data/media";
-    if let Err(e) = std::fs::create_dir_all(dir) {
-        error!("[AdminServer.upload] Failed to create media directory: {}", e);
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-    }
-
-    let unique_prefix = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis();
-    let unique_filename = format!("{}_{}", unique_prefix, clean_filename);
-    let file_path = format!("{}/{}", dir, unique_filename);
-
-    if let Err(e) = std::fs::write(&file_path, file_bytes) {
-        error!("[AdminServer.upload] Failed to write file: {}", e);
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-    }
-
-    let media = crate::modules::media_manager::AgentMedia {
-        id: None,
-        file_path,
-        telegram_file_id: None,
-        title,
-        purpose,
-        is_allowed_for_ai: true,
-    };
-
-    match crate::modules::media_manager::upload_media(&state.pool, &media).await {
-        Ok(_) => {
-            info!("[AdminServer.upload] Successfully saved and recorded agent media");
-            Redirect::to("/media").into_response()
-        }
-        Err(e) => {
-            error!("[AdminServer.upload] Failed database insertion: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
-        }
-    }
-}
-
-/// POST /media/toggle/:id - Toggles permission setting
-async fn media_toggle_handler(
-    _auth: BasicAuth,
-    State(state): State<AppState>,
-    axum::extract::Path(id): axum::extract::Path<i64>,
-) -> impl IntoResponse {
-    match crate::modules::media_manager::toggle_media_allowance(&state.pool, id).await {
-        Ok(_) => StatusCode::OK.into_response(),
-        Err(e) => {
-            error!("[AdminServer.toggle] Failed toggling allowance: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
-        }
-    }
-}
-
-/// POST /media/delete/:id - Delete media from DB and file off disk
-async fn media_delete_handler(
-    _auth: BasicAuth,
-    State(state): State<AppState>,
-    axum::extract::Path(id): axum::extract::Path<i64>,
-) -> impl IntoResponse {
-    match crate::modules::media_manager::remove_media(&state.pool, id).await {
-        Ok(file_path) => {
-            let _ = std::fs::remove_file(file_path);
-            StatusCode::OK.into_response()
-        }
-        Err(e) => {
-            error!("[AdminServer.delete] Failed to delete media: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
-        }
-    }
-}
-
-// ==========================================
 // Health Monitoring & Process Uptime Telemetry
 // ==========================================
 
@@ -931,6 +794,195 @@ async fn config_backup_handler(
     }
 }
 
+// ==========================================
+// Catalog Management Routing Controllers
+// ==========================================
+
+#[derive(serde::Deserialize)]
+pub struct CatalogQuery {
+    pub added: Option<bool>,
+    pub updated: Option<bool>,
+    pub deleted: Option<bool>,
+}
+
+#[derive(Template)]
+#[template(path = "catalog.html")]
+struct CatalogTemplate {
+    added: bool,
+    updated: bool,
+    deleted: bool,
+    products: Vec<crate::modules::catalog::Product>,
+}
+
+/// GET /catalog - Renders Catalog Management page loaded with all products
+async fn catalog_get_handler(
+    _auth: BasicAuth,
+    State(state): State<AppState>,
+    Query(query): Query<CatalogQuery>,
+) -> impl IntoResponse {
+    match crate::modules::catalog::get_catalog(&state.pool).await {
+        Ok(products) => {
+            let template = CatalogTemplate {
+                added: query.added.unwrap_or(false),
+                updated: query.updated.unwrap_or(false),
+                deleted: query.deleted.unwrap_or(false),
+                products,
+            };
+            match template.render() {
+                Ok(html) => Response::builder()
+                    .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
+                    .body(Body::from(html))
+                    .unwrap()
+                    .into_response(),
+                Err(err) => {
+                    error!("[AdminServer.catalog_get] Askama rendering failed: {}", err);
+                    StatusCode::INTERNAL_SERVER_ERROR.into_response()
+                }
+            }
+        }
+        Err(err) => {
+            error!("[AdminServer.catalog_get] DB Catalog fetch failure: {}", err);
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct CatalogAddForm {
+    pub product_name: String,
+    pub standard_price: i32,
+    pub stock_quantity: i32,
+    pub tags: Option<String>,
+    pub notes: String,
+    pub suitable_season: String,
+    pub suitable_situation: String,
+    pub duration: String,
+    pub sillage: String,
+}
+
+/// POST /catalog/add - Add new perfume product into catalog database table
+async fn catalog_add_handler(
+    _auth: BasicAuth,
+    State(state): State<AppState>,
+    Form(form): Form<CatalogAddForm>,
+) -> impl IntoResponse {
+    let conn = match state.pool.get().await {
+        Ok(c) => c,
+        Err(e) => {
+            error!("[AdminServer.catalog_add] DB pool acquisition failure: {}", e);
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+
+    let name_logged = form.product_name.clone();
+    let add_res = conn.interact(move |conn| -> Result<_, rusqlite::Error> {
+        let mut stmt = conn.prepare(
+            "INSERT INTO catalog (product_name, standard_price, stock_quantity, tags, notes, suitable_season, suitable_situation, duration, sillage) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        )?;
+        stmt.execute((
+            &form.product_name,
+            form.standard_price,
+            form.stock_quantity,
+            &form.tags,
+            &form.notes,
+            &form.suitable_season,
+            &form.suitable_situation,
+            &form.duration,
+            &form.sillage,
+        ))?;
+        Ok(())
+    }).await;
+
+    match add_res {
+        Ok(Ok(())) => {
+            info!("[AdminServer.catalog_add] Perfume product '{}' added successfully", name_logged);
+            Redirect::to("/catalog?added=true").into_response()
+        }
+        err => {
+            error!("[AdminServer.catalog_add] DB Insertion failed: {:?}", err);
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct CatalogUpdateForm {
+    pub product_id: i64,
+    pub standard_price: i32,
+    pub stock_quantity: i32,
+}
+
+/// POST /catalog/update - Edit product price and stock quantity inline
+async fn catalog_update_handler(
+    _auth: BasicAuth,
+    State(state): State<AppState>,
+    Form(form): Form<CatalogUpdateForm>,
+) -> impl IntoResponse {
+    let conn = match state.pool.get().await {
+        Ok(c) => c,
+        Err(e) => {
+            error!("[AdminServer.catalog_update] DB pool acquisition failure: {}", e);
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+
+    let update_res = conn.interact(move |conn| -> Result<_, rusqlite::Error> {
+        let mut stmt = conn.prepare(
+            "UPDATE catalog SET standard_price = ?, stock_quantity = ? WHERE product_id = ?"
+        )?;
+        stmt.execute((
+            form.standard_price,
+            form.stock_quantity,
+            form.product_id,
+        ))?;
+        Ok(())
+    }).await;
+
+    match update_res {
+        Ok(Ok(())) => {
+            info!("[AdminServer.catalog_update] Product ID {} updated successfully", form.product_id);
+            Redirect::to("/catalog?updated=true").into_response()
+        }
+        err => {
+            error!("[AdminServer.catalog_update] DB Update failed: {:?}", err);
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
+}
+
+/// POST /catalog/delete/{id} - Delete product from catalog database table
+async fn catalog_delete_handler(
+    _auth: BasicAuth,
+    State(state): State<AppState>,
+    axum::extract::Path(id): axum::extract::Path<i64>,
+) -> impl IntoResponse {
+    let conn = match state.pool.get().await {
+        Ok(c) => c,
+        Err(e) => {
+            error!("[AdminServer.catalog_delete] DB pool acquisition failure: {}", e);
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+
+    let delete_res = conn.interact(move |conn| -> Result<_, rusqlite::Error> {
+        let mut stmt = conn.prepare("DELETE FROM catalog WHERE product_id = ?")?;
+        stmt.execute([id])?;
+        Ok(())
+    }).await;
+
+    match delete_res {
+        Ok(Ok(())) => {
+            info!("[AdminServer.catalog_delete] Product ID {} deleted successfully", id);
+            Redirect::to("/catalog?deleted=true").into_response()
+        }
+        err => {
+            error!("[AdminServer.catalog_delete] DB Deletion failed: {:?}", err);
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
+}
+
 /// Starts the Axum web administration panel and binds it background thread concurrently.
 pub async fn run(pool: DbPool, config: AppConfig) -> anyhow::Result<()> {
     let port = config.admin_server_port;
@@ -938,14 +990,14 @@ pub async fn run(pool: DbPool, config: AppConfig) -> anyhow::Result<()> {
 
     let app = Router::new()
         .route("/", get(dashboard_handler))
+        .route("/admin/order/update_status", post(order_status_update_handler))
+        .route("/catalog", get(catalog_get_handler))
+        .route("/catalog/add", post(catalog_add_handler))
+        .route("/catalog/update", post(catalog_update_handler))
+        .route("/catalog/delete/{id}", post(catalog_delete_handler))
         .route("/config", get(config_get_handler).post(config_post_handler))
         .route("/logs", get(logs_handler))
         .route("/ws", get(ws_handler))
-        .route("/media", get(media_get_handler))
-        .route("/media/upload", post(media_upload_handler))
-        .route("/media/toggle/{id}", post(media_toggle_handler))
-        .route("/media/delete/{id}", post(media_delete_handler))
-        .route("/media/view/{filename}", get(serve_media_handler))
         .route("/health", get(health_check_handler))
         .route("/config/backup", post(config_backup_handler))
         .with_state(state);

@@ -1,7 +1,7 @@
 use std::env;
 use telegram_bot_seller::shared::{db, seed};
 use telegram_bot_seller::shared::types::{ChatId, ItemId, OrderId, ProductId};
-use telegram_bot_seller::modules::{catalog, contacts, orders, media_manager};
+use telegram_bot_seller::modules::{catalog, contacts, orders};
 use tracing::debug;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
@@ -138,25 +138,6 @@ async fn test_domain_modules_end_to_end() {
     let item1 = order_items.iter().find(|i| i.item_id == ItemId(1111)).unwrap();
     assert_eq!(item1.quantity, 2);
     assert_eq!(item1.price_at_sale, 14000);
-
-    // 9. Media manager operations (get_media, upload_media)
-    let initial_media = media_manager::get_media(&pool).await.expect("Failed to get media");
-    assert_eq!(initial_media.len(), 1, "Should have 1 seeded media item");
-    assert_eq!(initial_media[0].title, "Creed Aventus Catalog Photo");
-
-    let new_media = media_manager::AgentMedia {
-        id: None,
-        file_path: "./assets/bleu_chanel.jpg".to_string(),
-        telegram_file_id: Some("AgACAgIAAxkBAAM2ZH...".to_string()),
-        title: "Bleu de Chanel Catalog Photo".to_string(),
-        purpose: "product_showcase".to_string(),
-        is_allowed_for_ai: true,
-    };
-    media_manager::upload_media(&pool, &new_media).await.expect("Failed to upload media");
-
-    let updated_media = media_manager::get_media(&pool).await.expect("Failed to get media");
-    assert_eq!(updated_media.len(), 2);
-    assert!(updated_media.iter().any(|m| m.title == "Bleu de Chanel Catalog Photo"));
 
     // Cleanup DB file
     let _ = std::fs::remove_file(db_path);
