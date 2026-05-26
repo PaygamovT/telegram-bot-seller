@@ -93,6 +93,7 @@ struct DashboardTemplate {
     has_new_orders: bool,
     has_shipping_orders: bool,
     has_delivered_orders: bool,
+    active_theme: String,
 }
 
 struct SystemResources {
@@ -196,6 +197,18 @@ fn get_system_resources() -> SystemResources {
     }
 }
 
+async fn get_theme(pool: &DbPool) -> String {
+    let conn = match pool.get().await {
+        Ok(c) => c,
+        Err(_) => return "dark".to_string(),
+    };
+    conn.interact(|conn| -> Result<String, rusqlite::Error> {
+        let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = 'theme'")?;
+        let res = stmt.query_row([], |r| r.get::<_, String>(0)).unwrap_or_else(|_| "dark".to_string());
+        Ok(res)
+    }).await.unwrap_or_else(|_| Ok("dark".to_string())).unwrap_or_else(|_| "dark".to_string())
+}
+
 /// GET / - Renders Admin Dashboard Panel
 async fn dashboard_handler(
     _auth: BasicAuth,
@@ -275,6 +288,8 @@ async fn dashboard_handler(
     let has_shipping_orders = recent_orders.iter().any(|o| o.status == "shipped");
     let has_delivered_orders = recent_orders.iter().any(|o| o.status == "delivered");
 
+    let active_theme = get_theme(&state.pool).await;
+
     let resources = get_system_resources();
 
     let template = DashboardTemplate {
@@ -294,6 +309,7 @@ async fn dashboard_handler(
         has_new_orders,
         has_shipping_orders,
         has_delivered_orders,
+        active_theme,
     };
 
     match template.render() {
@@ -350,6 +366,41 @@ async fn order_status_update_handler(
 }
 
 #[derive(serde::Deserialize)]
+pub struct UpdateThemeForm {
+    pub theme: String,
+}
+
+/// POST /admin/update_theme - Updates the active UI theme in settings table
+async fn update_theme_handler(
+    _auth: BasicAuth,
+    State(state): State<AppState>,
+    Form(form): Form<UpdateThemeForm>,
+) -> impl IntoResponse {
+    let conn = match state.pool.get().await {
+        Ok(c) => c,
+        Err(e) => {
+            error!("[AdminServer.update_theme] DB pool acquisition failure: {}", e);
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+
+    let theme = form.theme.clone();
+    let res = conn.interact(move |conn| -> Result<(), rusqlite::Error> {
+        let mut stmt = conn.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('theme', ?)")?;
+        stmt.execute([theme])?;
+        Ok(())
+    }).await;
+
+    match res {
+        Ok(Ok(())) => StatusCode::OK.into_response(),
+        err => {
+            error!("[AdminServer.update_theme] DB theme update failed: {:?}", err);
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
+}
+
+#[derive(serde::Deserialize)]
 pub struct ConfigQuery {
     pub saved: Option<bool>,
     pub backup_success: Option<bool>,
@@ -380,6 +431,9 @@ struct ConfigTemplate {
     deepseek_api_key: String,
     deepseek_api_key_source: &'static str,
     deepseek_api_source_class: &'static str,
+    rub_to_krw_rate: String,
+    system_language: String,
+    active_theme: String,
 }
 
 /// GET /config - Load and display server settings configurations
@@ -467,6 +521,10 @@ async fn config_get_handler(
         }
     };
 
+    let rub_to_krw_rate = settings_map.get("rub_to_krw_rate").cloned().unwrap_or_else(|| "15.0".to_string());
+    let system_language = settings_map.get("system_language").cloned().unwrap_or_else(|| "ru".to_string());
+    let active_theme = settings_map.get("theme").cloned().unwrap_or_else(|| "dark".to_string());
+
     let template = ConfigTemplate {
         saved: query.saved.unwrap_or(false),
         backup_success: query.backup_success.unwrap_or(false),
@@ -490,6 +548,9 @@ async fn config_get_handler(
         deepseek_api_key,
         deepseek_api_key_source,
         deepseek_api_source_class,
+        rub_to_krw_rate,
+        system_language,
+        active_theme,
     };
 
     match template.render() {
@@ -515,6 +576,9 @@ pub struct ConfigForm {
     pub primary_ai_model: String,
     pub fallback_ai_model: String,
     pub deepseek_api_key: Option<String>,
+    pub rub_to_krw_rate: String,
+    pub system_language: String,
+    pub theme: String,
 }
 
 /// POST /config - Save settings into database
@@ -544,6 +608,9 @@ async fn config_post_handler(
             
             stmt.execute(("primary_ai_model", &form.primary_ai_model))?;
             stmt.execute(("fallback_ai_model", &form.fallback_ai_model))?;
+            stmt.execute(("rub_to_krw_rate", &form.rub_to_krw_rate))?;
+            stmt.execute(("system_language", &form.system_language))?;
+            stmt.execute(("theme", &form.theme))?;
             
             if let Some(openrouter) = &form.openrouter_api_key {
                 let trimmed = openrouter.trim();
@@ -644,13 +711,17 @@ where
 
 #[derive(Template)]
 #[template(path = "logs.html")]
-struct LogsTemplate;
+struct LogsTemplate {
+    active_theme: String,
+}
 
 /// GET /logs - Renders Logs Panel Console
 async fn logs_handler(
     _auth: BasicAuth,
+    State(state): State<AppState>,
 ) -> impl IntoResponse {
-    let template = LogsTemplate;
+    let active_theme = get_theme(&state.pool).await;
+    let template = LogsTemplate { active_theme };
     match template.render() {
         Ok(html) => Response::builder()
             .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
@@ -991,6 +1062,7 @@ pub async fn run(pool: DbPool, config: AppConfig) -> anyhow::Result<()> {
     let app = Router::new()
         .route("/", get(dashboard_handler))
         .route("/admin/order/update_status", post(order_status_update_handler))
+        .route("/admin/update_theme", post(update_theme_handler))
         .route("/catalog", get(catalog_get_handler))
         .route("/catalog/add", post(catalog_add_handler))
         .route("/catalog/update", post(catalog_update_handler))

@@ -17,6 +17,21 @@
             --success-glow: rgba(16, 185, 129, 0.2);
             --text: #f3f4f6;
             --text-secondary: #9ca3af;
+            --header-bg: rgba(13, 11, 24, 0.6);
+        }
+
+        html.light-theme {
+            --bg-gradient: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+            --glass-bg: rgba(255, 255, 255, 0.65);
+            --glass-border: rgba(0, 0, 0, 0.08);
+            --glass-glow: rgba(109, 40, 217, 0.08);
+            --primary: #6d28d9;
+            --primary-hover: #7c3aed;
+            --success: #059669;
+            --success-glow: rgba(5, 150, 105, 0.1);
+            --text: #111827;
+            --text-secondary: #4b5563;
+            --header-bg: rgba(243, 244, 246, 0.85);
         }
 
         * {
@@ -41,7 +56,7 @@
 
         /* Glassmorphism Header */
         header {
-            background: rgba(13, 11, 24, 0.6);
+            background: var(--header-bg);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--glass-border);
@@ -167,12 +182,17 @@
             <span style="font-size: 1.75rem;">🔮</span>
             <span class="brand">Antigravity Bot Admin</span>
         </div>
-        <nav>
-            <a href="/" class="{% block active_dash %}{% endblock %}">Панель</a>
-            <a href="/catalog" class="{% block active_catalog %}{% endblock %}">Каталог</a>
-            <a href="/logs" class="{% block active_logs %}{% endblock %}">Логи</a>
-            <a href="/config" class="{% block active_config %}{% endblock %}">Настройки</a>
-        </nav>
+        <div style="display: flex; align-items: center; gap: 1.5rem;">
+            <nav>
+                <a href="/" class="{% block active_dash %}{% endblock %}">Панель</a>
+                <a href="/tables" class="{% block active_tables %}{% endblock %}">Таблицы</a>
+                <a href="/logs" class="{% block active_logs %}{% endblock %}">Логи</a>
+                <a href="/config" class="{% block active_config %}{% endblock %}">Настройки</a>
+            </nav>
+            <button id="theme-toggle" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 50%; width: 36px; height: 36px; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" title="Переключить тему">
+                <span id="theme-icon">☀️</span>
+            </button>
+        </div>
     </header>
 
     <main>
@@ -182,5 +202,44 @@
     <footer>
         &copy; 2026 Antigravity Sales Agent Engine &bull; Debian ARM64 on Samsung Galaxy Flip 3
     </footer>
+
+    <script>
+        const htmlEl = document.documentElement;
+        const themeIcon = document.getElementById('theme-icon');
+        const themeToggleBtn = document.getElementById('theme-toggle');
+
+        function setTheme(theme) {
+            if (theme === 'light') {
+                htmlEl.classList.add('light-theme');
+                htmlEl.classList.remove('dark-theme');
+                if (themeIcon) themeIcon.textContent = '🌙';
+            } else {
+                htmlEl.classList.add('dark-theme');
+                htmlEl.classList.remove('light-theme');
+                if (themeIcon) themeIcon.textContent = '☀️';
+            }
+            localStorage.setItem('theme', theme);
+        }
+
+        // Initialize theme from localStorage, default to database value or dark
+        const activeThemeSetting = "{% block theme_setting %}{% endblock %}";
+        const savedTheme = localStorage.getItem('theme') || activeThemeSetting || 'dark';
+        setTheme(savedTheme === 'light' ? 'light' : 'dark');
+
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => {
+                const currentTheme = htmlEl.classList.contains('light-theme') ? 'light' : 'dark';
+                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                setTheme(newTheme);
+                
+                // Save theme asynchronously in background
+                fetch('/admin/update_theme', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `theme=${newTheme}`
+                }).catch(err => console.log('Theme sync error:', err));
+            });
+        }
+    </script>
 </body>
 </html>
