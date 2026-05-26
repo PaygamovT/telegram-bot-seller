@@ -94,6 +94,7 @@ struct DashboardTemplate {
     has_shipping_orders: bool,
     has_delivered_orders: bool,
     active_theme: String,
+    platform_name: String,
 }
 
 struct SystemResources {
@@ -110,90 +111,181 @@ struct SystemResources {
 /// Dynamic smartphone hardware monitoring loader.
 /// Parses procfs on Android/Linux, and provides realistic dynamic values on Windows/Testing.
 fn get_system_resources() -> SystemResources {
-    // 1. RAM Reading (/proc/meminfo)
-    let (ram_used, ram_total, ram_percentage) = if let Ok(meminfo) = std::fs::read_to_string("/proc/meminfo") {
-        let mut mem_total = 8192 * 1024; // 8GB default
-        let mut mem_available = 4096 * 1024;
-        
-        for line in meminfo.lines() {
-            if line.starts_with("MemTotal:") {
-                if let Some(val_str) = line.split_whitespace().nth(1) {
-                    if let Ok(val) = val_str.parse::<u64>() {
-                        mem_total = val;
-                    }
-                }
-            } else if line.starts_with("MemAvailable:") {
-                if let Some(val_str) = line.split_whitespace().nth(1) {
-                    if let Ok(val) = val_str.parse::<u64>() {
-                        mem_available = val;
+    if cfg!(target_os = "windows") {
+        // Query CPU Load on Windows via wmic
+        let mut cpu_load = 14.5;
+        if let Ok(output) = std::process::Command::new("wmic").args(["cpu", "get", "loadpercentage", "/Value"]).output() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                if line.starts_with("LoadPercentage=") {
+                    if let Some(val) = line.split('=').nth(1).and_then(|s| s.trim().parse::<f32>().ok()) {
+                        cpu_load = val.clamp(1.0, 99.9);
+                        break;
                     }
                 }
             }
         }
-        let used = mem_total.saturating_sub(mem_available);
-        let used_mb = used / 1024;
-        let total_mb = mem_total / 1024;
-        let pct = if total_mb > 0 { (used_mb as f32 / total_mb as f32) * 100.0 } else { 50.0 };
-        (used_mb, total_mb, pct)
-    } else {
-        // Simulated fluctuating RAM based on seconds
-        let total_mb = 8192;
-        let sec = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
-        let cycle = (sec % 300) as f32 / 300.0;
-        let used_mb = (3100.0 + (700.0 * (cycle * 2.0 * std::f32::consts::PI).sin())) as u64;
-        let pct = (used_mb as f32 / total_mb as f32) * 100.0;
-        (used_mb, total_mb, pct)
-    };
 
-    // 2. Battery Capacity
-    let battery_charge = if let Ok(cap) = std::fs::read_to_string("/sys/class/power_supply/battery/capacity") {
-        cap.trim().parse::<u8>().unwrap_or(88)
-    } else {
-        let sec = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
-        let min = (sec / 60) % 60;
-        (98 - (min / 3)) as u8 // slowly ticks down
-    };
+        // Query RAM capacity and usage on Windows via wmic
+        let mut ram_used = 3100;
+        let mut ram_total = 8192;
+        let mut ram_percentage = 40.0;
+        if let Ok(output) = std::process::Command::new("wmic").args(["OS", "get", "FreePhysicalMemory,TotalVisibleMemorySize", "/Value"]).output() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let mut free = 0;
+            let mut total = 0;
+            for line in stdout.lines() {
+                if line.starts_with("FreePhysicalMemory=") {
+                    free = line.split('=').nth(1).and_then(|s| s.trim().parse::<u64>().ok()).unwrap_or(0);
+                } else if line.starts_with("TotalVisibleMemorySize=") {
+                    total = line.split('=').nth(1).and_then(|s| s.trim().parse::<u64>().ok()).unwrap_or(0);
+                }
+            }
+            if total > 0 && free > 0 {
+                ram_total = total / 1024; // KB to MB
+                ram_used = (total - free) / 1024;
+                ram_percentage = if ram_total > 0 { (ram_used as f32 / ram_total as f32) * 100.0 } else { 40.0 };
+            }
+        }
 
-    // 3. CPU Load Monitoring
-    let cpu_load = if let Ok(loadavg) = std::fs::read_to_string("/proc/loadavg") {
-        if let Some(load1) = loadavg.split_whitespace().next() {
-            if let Ok(load_f) = load1.parse::<f32>() {
-                (load_f / 8.0 * 100.0).clamp(1.0, 99.9)
+        // Query C: drive storage statistics on Windows via wmic
+        let mut storage_total = 256;
+        let mut storage_used = 124;
+        let mut storage_percentage = 50.0;
+        if let Ok(output) = std::process::Command::new("wmic").args(["logicaldisk", "where", "DeviceID='C:'", "get", "FreeSpace,Size", "/Value"]).output() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let mut free = 0;
+            let mut total = 0;
+            for line in stdout.lines() {
+                if line.starts_with("FreeSpace=") {
+                    free = line.split('=').nth(1).and_then(|s| s.trim().parse::<u64>().ok()).unwrap_or(0);
+                } else if line.starts_with("Size=") {
+                    total = line.split('=').nth(1).and_then(|s| s.trim().parse::<u64>().ok()).unwrap_or(0);
+                }
+            }
+            if total > 0 {
+                storage_total = total / 1024 / 1024 / 1024; // Bytes to GB
+                let storage_free = free / 1024 / 1024 / 1024;
+                storage_used = storage_total.saturating_sub(storage_free);
+                storage_percentage = if storage_total > 0 { (storage_used as f32 / storage_total as f32) * 100.0 } else { 50.0 };
+            }
+        }
+
+        // Query Battery Estimated Charge remaining on Windows laptops via wmic
+        let mut battery_charge = 100;
+        if let Ok(output) = std::process::Command::new("wmic").args(["path", "Win32_Battery", "get", "EstimatedChargeRemaining", "/Value"]).output() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let mut found = false;
+            for line in stdout.lines() {
+                if line.starts_with("EstimatedChargeRemaining=") {
+                    if let Some(val) = line.split('=').nth(1).and_then(|s| s.trim().parse::<u8>().ok()) {
+                        battery_charge = val;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if !found {
+                battery_charge = 100; // Default to AC Power on desktops without battery hardware
+            }
+        }
+
+        SystemResources {
+            cpu_load,
+            ram_used,
+            ram_total,
+            ram_percentage,
+            storage_used,
+            storage_total,
+            storage_percentage,
+            battery_charge,
+        }
+    } else {
+        // 1. RAM Reading (/proc/meminfo) on Linux/ARM64
+        let (ram_used, ram_total, ram_percentage) = if let Ok(meminfo) = std::fs::read_to_string("/proc/meminfo") {
+            let mut mem_total = 8192 * 1024; // 8GB default
+            let mut mem_available = 4096 * 1024;
+            
+            for line in meminfo.lines() {
+                if line.starts_with("MemTotal:") {
+                    if let Some(val_str) = line.split_whitespace().nth(1) {
+                        if let Ok(val) = val_str.parse::<u64>() {
+                            mem_total = val;
+                        }
+                    }
+                } else if line.starts_with("MemAvailable:") {
+                    if let Some(val_str) = line.split_whitespace().nth(1) {
+                        if let Ok(val) = val_str.parse::<u64>() {
+                            mem_available = val;
+                        }
+                    }
+                }
+            }
+            let used = mem_total.saturating_sub(mem_available);
+            let used_mb = used / 1024;
+            let total_mb = mem_total / 1024;
+            let pct = if total_mb > 0 { (used_mb as f32 / total_mb as f32) * 100.0 } else { 50.0 };
+            (used_mb, total_mb, pct)
+        } else {
+            // Simulated fluctuating RAM based on seconds
+            let total_mb = 8192;
+            let sec = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            let cycle = (sec % 300) as f32 / 300.0;
+            let used_mb = (3100.0 + (700.0 * (cycle * 2.0 * std::f32::consts::PI).sin())) as u64;
+            let pct = (used_mb as f32 / total_mb as f32) * 100.0;
+            (used_mb, total_mb, pct)
+        };
+
+        // 2. Battery Capacity on Linux/ARM64
+        let battery_charge = if let Ok(cap) = std::fs::read_to_string("/sys/class/power_supply/battery/capacity") {
+            cap.trim().parse::<u8>().unwrap_or(88)
+        } else {
+            let sec = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            let min = (sec / 60) % 60;
+            (98 - (min / 3)) as u8 // slowly ticks down
+        };
+
+        // 3. CPU Load Monitoring on Linux/ARM64
+        let cpu_load = if let Ok(loadavg) = std::fs::read_to_string("/proc/loadavg") {
+            if let Some(load1) = loadavg.split_whitespace().next() {
+                if let Ok(load_f) = load1.parse::<f32>() {
+                    (load_f / 8.0 * 100.0).clamp(1.0, 99.9)
+                } else {
+                    14.5
+                }
             } else {
                 14.5
             }
         } else {
-            14.5
+            let sec = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            let wave = ((sec as f32 * 0.08).sin() + 1.0) / 2.0;
+            12.0 + wave * 25.0
+        };
+
+        // 4. Storage load (Samsung Flip 3 base: 256GB total)
+        let storage_total = 256;
+        let storage_used = 124;
+        let storage_percentage = (storage_used as f32 / storage_total as f32) * 100.0;
+
+        SystemResources {
+            cpu_load,
+            ram_used,
+            ram_total,
+            ram_percentage,
+            storage_used,
+            storage_total,
+            storage_percentage,
+            battery_charge,
         }
-    } else {
-        let sec = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
-        let wave = ((sec as f32 * 0.08).sin() + 1.0) / 2.0;
-        12.0 + wave * 25.0
-    };
-
-    // 4. Storage load (Samsung Flip 3 base: 256GB total)
-    let storage_total = 256;
-    let storage_used = 124;
-    let storage_percentage = (storage_used as f32 / storage_total as f32) * 100.0;
-
-    SystemResources {
-        cpu_load,
-        ram_used,
-        ram_total,
-        ram_percentage,
-        storage_used,
-        storage_total,
-        storage_percentage,
-        battery_charge,
     }
 }
 
@@ -292,6 +384,14 @@ async fn dashboard_handler(
 
     let resources = get_system_resources();
 
+    let platform_name = if cfg!(target_os = "windows") {
+        "Локальный сервер (Windows Host)".to_string()
+    } else if cfg!(target_os = "macos") {
+        "Локальный сервер (macOS Host)".to_string()
+    } else {
+        "Смартфон (Galaxy Flip 3)".to_string()
+    };
+
     let template = DashboardTemplate {
         total_orders,
         total_revenue,
@@ -310,6 +410,7 @@ async fn dashboard_handler(
         has_shipping_orders,
         has_delivered_orders,
         active_theme,
+        platform_name,
     };
 
     match template.render() {
@@ -431,7 +532,6 @@ struct ConfigTemplate {
     deepseek_api_key: String,
     deepseek_api_key_source: &'static str,
     deepseek_api_source_class: &'static str,
-    rub_to_krw_rate: String,
     system_language: String,
     active_theme: String,
 }
@@ -521,7 +621,6 @@ async fn config_get_handler(
         }
     };
 
-    let rub_to_krw_rate = settings_map.get("rub_to_krw_rate").cloned().unwrap_or_else(|| "15.0".to_string());
     let system_language = settings_map.get("system_language").cloned().unwrap_or_else(|| "ru".to_string());
     let active_theme = settings_map.get("theme").cloned().unwrap_or_else(|| "dark".to_string());
 
@@ -548,7 +647,6 @@ async fn config_get_handler(
         deepseek_api_key,
         deepseek_api_key_source,
         deepseek_api_source_class,
-        rub_to_krw_rate,
         system_language,
         active_theme,
     };
@@ -576,7 +674,6 @@ pub struct ConfigForm {
     pub primary_ai_model: String,
     pub fallback_ai_model: String,
     pub deepseek_api_key: Option<String>,
-    pub rub_to_krw_rate: String,
     pub system_language: String,
     pub theme: String,
 }
@@ -608,7 +705,6 @@ async fn config_post_handler(
             
             stmt.execute(("primary_ai_model", &form.primary_ai_model))?;
             stmt.execute(("fallback_ai_model", &form.fallback_ai_model))?;
-            stmt.execute(("rub_to_krw_rate", &form.rub_to_krw_rate))?;
             stmt.execute(("system_language", &form.system_language))?;
             stmt.execute(("theme", &form.theme))?;
             

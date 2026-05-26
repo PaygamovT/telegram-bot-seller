@@ -284,7 +284,7 @@ tr:hover {
                     <input type="text" id="product_name" name="product_name" required placeholder="Например: Tom Ford Lost Cherry">
                 </div>
                 <div class="form-group">
-                    <label for="standard_price">Цена (в рублях)</label>
+                    <label for="standard_price">Цена (в корейских вонах ₩)</label>
                     <input type="number" id="standard_price" name="standard_price" required min="1" placeholder="Например: 18000">
                 </div>
                 <div class="form-group">
@@ -345,7 +345,7 @@ tr:hover {
                         <tr>
                             <th style="width: 60px;">ID</th>
                             <th>Название и Свойства</th>
-                            <th style="width: 280px;">Остаток & Цена (₽)</th>
+                            <th style="width: 280px;">Остаток & Цена (₩)</th>
                             <th style="width: 80px; text-align: center;">Удалить</th>
                         </tr>
                     </thead>
@@ -383,7 +383,7 @@ tr:hover {
                                     </div>
                                     <div style="display: flex; flex-direction: column; gap: 0.15rem;">
                                         <input type="number" name="standard_price" value="{{ item.standard_price }}" required min="1" style="width: 95px; text-align: center; padding: 0.35rem; font-weight: 600;">
-                                        <span style="font-size: 0.65rem; color: var(--text-secondary); text-align: center;">Цена (₽)</span>
+                                        <span style="font-size: 0.65rem; color: var(--text-secondary); text-align: center;">Цена (₩)</span>
                                     </div>
                                     <button type="submit" class="btn" style="padding: 0.45rem 0.65rem;" title="Сохранить изменения">
                                         <span>💾</span>
@@ -560,7 +560,7 @@ tr:hover {
                     <input type="text" id="delivery_address" name="delivery_address" required placeholder="Например: Сеул, Каннамгу...">
                 </div>
                 <div class="form-group">
-                    <label for="total_amount">Общая сумма (в рублях)</label>
+                    <label for="total_amount">Общая сумма (в корейских вонах ₩)</label>
                     <input type="number" id="total_amount" name="total_amount" required min="0" placeholder="Например: 18000">
                 </div>
                 <div style="margin-top: 1.5rem;">
@@ -583,7 +583,7 @@ tr:hover {
                         <tr>
                             <th style="width: 100px;">Заказ ID</th>
                             <th>Покупатель ID</th>
-                            <th>Общая цена (₽)</th>
+                            <th>Общая цена (₩)</th>
                             <th style="width: 250px;">Статус & Доставка</th>
                             <th style="width: 80px; text-align: center;">Удалить</th>
                         </tr>
@@ -598,7 +598,7 @@ tr:hover {
                                 {{ o.chat_id.0 }}
                             </td>
                             <td style="font-weight: 700; color: var(--text);">
-                                {{ o.total_amount }} ₽
+                                {{ o.total_amount }} ₩
                             </td>
                             <td>
                                 <form action="/tables/orders/update" method="POST" style="display: flex; flex-direction: column; gap: 0.4rem;">
@@ -663,7 +663,7 @@ tr:hover {
                     <select id="order_id" name="order_id" required>
                         <option value="">-- Выберите заказ --</option>
                         {% for o in orders %}
-                        <option value="{{ o.order_id.0 }}">{{ o.order_id.0 }} (сумма: {{ o.total_amount }}₽)</option>
+                        <option value="{{ o.order_id.0 }}">{{ o.order_id.0 }} (сумма: {{ o.total_amount }}₩)</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -672,7 +672,7 @@ tr:hover {
                     <select id="product_id" name="product_id" required>
                         <option value="">-- Выберите парфюм --</option>
                         {% for p in products %}
-                        <option value="{{ p.product_id }}">{{ p.product_name }} ({{ p.standard_price }}₽)</option>
+                        <option value="{{ p.product_id }}">{{ p.product_name }} ({{ p.standard_price }}₩)</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -681,7 +681,7 @@ tr:hover {
                     <input type="number" id="quantity" name="quantity" required min="1" value="1" placeholder="Например: 1">
                 </div>
                 <div class="form-group">
-                    <label for="price_at_sale">Цена продажи (в рублях)</label>
+                    <label for="price_at_sale">Цена продажи (в корейских вонах ₩)</label>
                     <div class="input-desc">Цена за единицу на момент продажи.</div>
                     <input type="number" id="price_at_sale" name="price_at_sale" required min="1" placeholder="Например: 18000">
                 </div>
@@ -733,7 +733,7 @@ tr:hover {
                                     
                                     <div style="display: flex; flex-direction: column; gap: 0.15rem;">
                                         <input type="number" name="price_at_sale" value="{{ item.price_at_sale }}" required min="1" style="width: 95px; text-align: center; padding: 0.35rem; font-weight: 600;">
-                                        <span style="font-size: 0.65rem; color: var(--text-secondary); text-align: center;">Цена (₽)</span>
+                                        <span style="font-size: 0.65rem; color: var(--text-secondary); text-align: center;">Цена (₩)</span>
                                     </div>
                                     
                                     <button type="submit" class="btn" style="padding: 0.45rem 0.65rem;" title="Сохранить">

@@ -380,14 +380,14 @@ tr:hover td {
     <!-- Stat Card 2 -->
     <div class="metric-card success">
         <div class="metric-title">Выручка (Оплачено)</div>
-        <div class="metric-value">{{ total_revenue }} ₽</div>
+        <div class="metric-value">{{ total_revenue }} ₩</div>
         <div class="metric-subtitle">Сумма всех успешных сделок</div>
     </div>
 
     <!-- System Status & Resource Loads -->
     <div class="metric-card resources-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <div class="metric-title" style="margin-bottom: 0;">Мониторинг Смартфона (Galaxy Flip 3)</div>
+            <div class="metric-title" style="margin-bottom: 0;">Мониторинг {{ platform_name }}</div>
             <div class="status-pill">
                 <span class="status-dot"></span>
                 <span>{{ bot_status }}</span>
@@ -509,7 +509,7 @@ tr:hover td {
                         </div>
                         <div class="pipeline-item-meta">
                             <strong>Клиент:</strong> {{ order.customer_name }}<br>
-                            <strong>Сумма:</strong> {{ order.total_amount }} ₽<br>
+                            <strong>Сумма:</strong> {{ order.total_amount }} ₩<br>
                             <strong>Статус:</strong> 
                             <span class="status-badge {{ order.status }}" style="padding: 0.15rem 0.4rem; font-size: 0.7rem; border-radius: 4px;">
                                 {% if order.status == "pending" %}ожидание{% else %}оплачен{% endif %}
@@ -553,7 +553,7 @@ tr:hover td {
                         </div>
                         <div class="pipeline-item-meta">
                             <strong>Клиент:</strong> {{ order.customer_name }}<br>
-                            <strong>Сумма:</strong> {{ order.total_amount }} ₽<br>
+                            <strong>Сумма:</strong> {{ order.total_amount }} ₩<br>
                             <strong>Статус:</strong> 
                             <span class="status-badge shipped" style="padding: 0.15rem 0.4rem; font-size: 0.7rem; background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 4px;">доставка</span>
                         </div>
@@ -595,7 +595,7 @@ tr:hover td {
                         </div>
                         <div class="pipeline-item-meta">
                             <strong>Клиент:</strong> {{ order.customer_name }}<br>
-                            <strong>Сумма:</strong> {{ order.total_amount }} ₽<br>
+                            <strong>Сумма:</strong> {{ order.total_amount }} ₩<br>
                             <strong>Статус:</strong> 
                             <span class="status-badge paid" style="padding: 0.15rem 0.4rem; font-size: 0.7rem; border-radius: 4px;">выполнен</span>
                         </div>
